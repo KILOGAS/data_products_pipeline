@@ -99,134 +99,6 @@ class ClipCube:
                 return cube
         else:
             raise AttributeError('Please provide a 2D or 3D array.')
-            
-            
-    def calc_noise_in_cube(self,
-            masking_scheme='simple', mask=None,
-            spatial_average_npix=None, spatial_average_nbeam=5.0,
-            spectral_average_nchan=5, verbose=False):
-        """
-        From Jiayi Sun's script: 
-            https://github.com/astrojysun/Sun_Astro_Tools/blob/master/sun_astro_tools/spectralcube.py
-
-        Estimate rms noise in a (continuum-subtracted) spectral cube.
-        Parameters
-        ----------
-        masking_scheme : {'simple', 'user'}, optional
-            Scheme for flagging signal in the cube. 'simple' means to flag
-            all values above 3*rms or below -3*rms (default scheme);
-            'user' means to use the user-specified mask (i.e., `mask`).
-        mask : `np.ndarray` object, optional
-            User-specified signal mask (this parameter is ignored if
-            `masking_scheme` is not 'user')
-        spatial_average_npix : int, optional
-            Size of the spatial averaging box, in terms of pixel number
-            If not None, `spatial_average_nbeam` will be ingored.
-            (Default: None)
-        spatial_average_nbeam : float, optional
-            Size of the spatial averaging box, in the unit of beam FWHM
-            (Default: 5.0)
-        spectral_average_nchan : int, optional
-            Size of the spectral averaging box, in terms of channel number
-            (Default: 5)
-        verbose : bool, optional
-            Whether to print the detailed processing information in terminal
-            Default is to not print.
-
-        Returns
-        -------
-        rmscube : SpectralCube object
-            Spectral cube containing the rms noise at each ppv location
-        """
-
-        if masking_scheme not in ['simple', 'user']:
-            raise ValueError("'masking_scheme' should be specified as"
-                             "either 'simple' or 'user'")
-        elif masking_scheme == 'user' and mask is None:
-            raise ValueError("'masking_scheme' set to 'user', yet "
-                             "no user-specified mask found")
-
-        # Calculate the noise in the line-free part of the PB UN/CORRECTED cube
-        cube_pbcorr, cube_uncorr = ClipCube(self.galaxy.name, self.path_pbcorr, self.path_uncorr, sun=self.sun,
-                                    savepath=self.savepath, tosave=self.tosave, sample=self.sample).readfits()
-
-        # Centre and clip empty rows and columns to get it in the same shape as the other products
-        if not self.redo_clip:
-            if os.path.exists(self.savepath + 'noise_subcube_slab.fits'):
-                noisecube = fits.read(self.savepath + 'noise_subcube_slab.fits')[0]
-            else:
-                _, noisecube = ClipCube(self.galaxy.name, self.path_pbcorr, self.path_uncorr, sun=self.sun,
-                                        savepath=self.savepath, tosave=self.tosave, sample=self.sample).do_clip(clip_also_nat='noise')
-        else:
-            _, noisecube = ClipCube(self.galaxy.name, self.path_pbcorr, self.path_uncorr, sun=self.sun,
-                                    savepath=self.savepath, tosave=self.tosave, sample=self.sample).do_clip(clip_also_nat='noise')
-
-        # extract negative values (only needed if masking_scheme='simple')
-        if masking_scheme == 'simple':
-            if verbose:
-                print("Extracting negative values...")
-            negdata = np.where(noisecube.data < 0, noisecube.data, np.nan)
-            negdata = np.stack([negdata, -1 * negdata], axis=-1)
-        else:
-            negdata = None
-
-        # find rms noise as a function of channel
-        if verbose:
-            print("Estimating rms noise as a function of channel...")
-        if masking_scheme == 'user':
-            mask_v = mask
-        elif masking_scheme == 'simple':
-            rms_v = mad_std(negdata, axis=(1, 2, 3), ignore_nan=True)
-            uplim_v = (3 * rms_v).reshape(-1, 1, 1)
-            lolim_v = (-3 * rms_v).reshape(-1, 1, 1)
-            mask_v = (((noisecube.data - uplim_v) < 0) &
-                      ((noisecube.data - lolim_v) > 0))
-
-        rms_v = mad_std(np.where(mask_v == 1, noisecube.data, np.nan), axis=(1, 2), ignore_nan=True)
-        rms_v = ndimage.generic_filter(rms_v, np.nanmedian,
-                               mode='constant', cval=np.nan,
-                               size=spectral_average_nchan)
-
-        # find rms noise as a function of sightline
-        if verbose:
-            print("Estimating rms noise as a function of sightline...")
-        if masking_scheme == 'user':
-            mask_s = mask
-        elif masking_scheme == 'simple':
-            rms_s = mad_std(negdata, axis=(0, 3), ignore_nan=True)
-            uplim_s = 3 * rms_s
-            lolim_s = -3 * rms_s
-            mask_s = (((noisecube.data - uplim_s) < 0) &
-                      ((noisecube.data - lolim_s) > 0))
-        rms_s = mad_std(np.where(mask_s == 1, noisecube.data, np.nan), axis=0, ignore_nan=True)
-        if spatial_average_npix is None:
-            beamFWHM_pix = cube_pbcorr.header['BMAJ'] / cube_pbcorr.header['CDELT2']
-            beamFWHM_pix = np.max([beamFWHM_pix, 3])
-            spatial_average_npix = int(spatial_average_nbeam * beamFWHM_pix)
-        rms_s = ndimage.generic_filter(rms_s, np.nanmedian, mode='constant', cval=np.nan, size=spatial_average_npix)
-
-        # create rms noise cube from the tensor product of rms_v and rms_s
-        if verbose:
-            print("Creating rms noise cube (direct tensor product)...")
-        rmscube = np.einsum('i,jk', rms_v, rms_s)
-
-        # correct the normalization of the rms cube
-        if masking_scheme == 'user':
-            mask_n = mask
-        elif masking_scheme == 'simple':
-            rms_n = mad_std(negdata, ignore_nan=True)
-            uplim_n = 3 * rms_n
-            lolim_n = -3 * rms_n
-            mask_n = (((noisecube.data - uplim_n) < 0) &
-                      ((noisecube.data - lolim_n) > 0))
-        rms_n = mad_std(noisecube.data[mask_n])
-        rmscube /= rms_n
-
-        # Write as FITS file
-        rmscube_hdu = fits.PrimaryHDU(rmscube, noisecube.header)
-        rmscube_hdu.writeto(self.savepath + 'rms_cube.fits', overwrite=True)
-
-        return rmscube_hdu
 
 
     def readfits(self):
@@ -637,191 +509,6 @@ class ClipCube:
         return emiscube_smooth.data.astype(bool)
 
 
-    def prune_small_detections(self, cube, mask):
-        """
-        Mask structures in the spectral cube that are smaller than the desired 
-        size specified by "prune_by_npix" or "prune_by_fracbeam" in the galaxy 
-        parameters. Based on the function designed by Jiayi Sun.
-
-        Parameters
-        ----------
-        cube : FITS file
-            The ALMA cube, used to extract the relevant beam information from 
-            the header.
-        mask : 3D numpy array
-            The mask that we previously created from the smoothed data cube.
-
-        Returns
-        -------
-        mask : 3D numpy array
-            Updated mask with the small detections set to 0.
-
-        """
-
-        if self.galaxy.prune_by_npix:
-            prune_by_npix = self.galaxy.prune_by_npix
-        else:
-            res = cube.header['CDELT2']  # deg. / pix.
-            bmaj_pix = cube.header['BMAJ'] / res  # deg. / (deg. / pix.)
-            bmin_pix = cube.header['BMIN'] / res  # deg. / (deg. / pix.)
-            beam_area_pix = np.pi * bmaj_pix * bmin_pix
-            prune_by_npix = beam_area_pix * self.galaxy.prune_by_fracbeam
-
-        labels, count = label(mask)
-        for idx in np.arange(count) + 1:
-            if (labels == idx).any(axis=0).sum() < prune_by_npix:
-                mask[labels == idx] = False
-
-        return mask
-
-
-    def expand_along_spatial(self, cube, mask):
-        """
-        Expand the mask along spatial dimensions by an amount provided by 
-        either "expand_by_npix" or "expand_by_fracbeam" in the galaxy 
-        parameters.
-
-        Parameters
-        ----------
-        cube : FITS file
-            The ALMA cube, used to extract the relevant beam information from 
-            the header.
-        mask : 3D numpy array
-            The mask that we previously created from the smoothed data cube.
-
-        Returns
-        -------
-        mask : 3D numpy array
-            Updated, expanded mask with the additional pixels set to 1.
-
-        """
-
-        if self.galaxy.expand_by_npix:
-            expand_by_npix = int(self.galaxy.expand_by_npix)
-        else:
-            res = cube.header['CDELT2']  # deg. / pix.
-            bmaj = cube.header['BMAJ']  # deg.
-            bmin = cube.header['BMIN']  # deg.
-            beam_hwhm_pix = np.average([bmaj, bmin]) / res / 2  # deg. / (deg. / pix.)
-            expand_by_npix = int(beam_hwhm_pix * self.galaxy.expand_by_fracbeam)
-
-        structure = np.zeros([3, expand_by_npix * 2 + 1, expand_by_npix * 2 + 1])
-        Y, X = np.ogrid[:expand_by_npix * 2 + 1, :expand_by_npix * 2 + 1]
-        R = np.sqrt((X - expand_by_npix) ** 2 + (Y - expand_by_npix) ** 2)
-        structure[1, :] = R <= expand_by_npix
-        mask = binary_dilation(mask, iterations=1, structure=structure)
-
-        return mask
-
-
-    def expand_along_spectral(self, mask):
-        """
-        Expand the mask along the velocity direction as provided by 
-        "expand_by_nchan" in the galaxy parameters.
-
-        Parameters
-        mask : 3D numpy array
-            The mask that we previously created from the smoothed data cube.
-
-        Returns
-        -------
-        mask : 3D numpy array
-            Updated, expanded mask with the additional pixels set to 1.
-
-        """
-        for i in range(self.galaxy.expand_by_nchan):
-            tempmask = np.roll(mask, shift=1, axis=0)
-            tempmask[0, :] = False
-            mask |= tempmask
-            tempmask = np.roll(mask, shift=-1, axis=0)
-            tempmask[-1, :] = False
-            mask |= tempmask
-
-        return mask
-
-
-    def sun_method(self, emiscube, noisecube, calc_rms=False):
-        """
-        Apply Jiayi Sun's clipping method', including options to prune 
-        detections with small areas on the sky, or expand the mask in the mask
-        along the spatial axes or spectral axis.
-
-        Parameters
-        ----------
-        emiscube : FITS file
-            3D cube containing the spectral line.
-        noisecube : FITS file
-            3D cube containing the line-free channels.
-        calc_rms : bool, optional
-            If set to "True" this function will only return the RMS estimate 
-            for the data cube. The default is False.
-
-        Raises
-        ------
-        AttributeError
-            Will raise an AttributeError if some of the required parameters
-            are not set (nchan_low, cliplevel_low, nchan_high, and 
-                         cliplevel_high).
-
-        Returns
-        -------
-        mask : FITS file
-            The final mask, which will be used for clipping the original cube.
-
-        """
-
-        # Check if the necessary parameters are provided
-        if not (
-                self.galaxy.nchan_low and self.galaxy.cliplevel_low and self.galaxy.nchan_high and
-                self.galaxy.cliplevel_high):
-            raise AttributeError('If you want to use Sun\'s method, please provide "nchan_low", "cliplevel_low", '
-                                 '"nchan_high", and "cliplevel_high".')
-
-        # Estimate the rms from the spatial inner part of the cube
-        inner = self.innersquare(noisecube.data)
-        rms = np.nanstd(inner)
-
-        if calc_rms:
-            return rms
-
-        snr = emiscube.data / rms
-
-        # Generate core mask
-        mask_core = (snr > self.galaxy.cliplevel_high).astype(bool)
-        for i in range(self.galaxy.nchan_high - 1):
-            mask_core &= np.roll(mask_core, shift=1, axis=0)
-        mask_core[:self.galaxy.nchan_high - 1] = False
-        for i in range(self.galaxy.nchan_high - 1):
-            mask_core |= np.roll(mask_core, shift=-1, axis=0)
-
-        # Generate wing mask
-        mask_wing = (snr > self.galaxy.cliplevel_low).astype(bool)
-        for i in range(self.galaxy.nchan_low - 1):
-            mask_wing &= np.roll(mask_wing, shift=1, axis=0)
-        mask_wing[:self.galaxy.nchan_low - 1] = False
-        for i in range(self.galaxy.nchan_low - 1):
-            mask_wing |= np.roll(mask_wing, shift=-1, axis=0)
-
-        # Dilate core mask inside wing mask
-        mask = binary_dilation(mask_core, iterations=0, mask=mask_wing)
-
-        # Prune detections with small projected areas on the sky
-        if self.galaxy.prune_by_fracbeam or self.galaxy.prune_by_npix:
-            mask = self.prune_small_detections(emiscube, mask)
-
-        # Expand along spatial dimensions by a fraction of the beam FWHM
-        if self.galaxy.expand_by_fracbeam or self.galaxy.expand_by_npix:
-            mask = self.expand_along_spatial(emiscube, mask)
-
-        # Expand along spectral dimension by a number of channels
-        if self.galaxy.expand_by_nchan:
-            mask = self.expand_along_spectral(mask)
-
-        #mask = np.ones(emiscube.shape)
-
-        return mask
-
-
     def smooth_mask(self, cube, noisecube, return_rms=False):
         """
         Apply a Gaussian blur, using sigma = 4 in the velocity direction 
@@ -852,33 +539,6 @@ class ClipCube:
         beam = np.array([cube.header['BMAJ'], cube.header['BMIN']]) / cube.header['CDELT2']
         sigma = 1.5 * cube.header['BMAJ'] / cube.header['CDELT2']  # / np.sqrt(8. * np.log(2.))
 
-        '''
-        xpixels = cube.shape[1]
-        ypixels = cube.shape[2]
-        cent = [xpixels / 2, ypixels / 2]
-        rot = 0
-        dirfac = 1
-
-        # Convolve with 1.5 the beam in the spatial direction
-        # Calculate the psf
-        x, y = np.indices((int(xpixels), int(ypixels)), dtype='float')
-        x -= cent[0]
-        y -= cent[1]
-
-        a = (np.cos(np.radians(rot)) ** 2) / (2.0 * (sigma[0] ** 2)) + (np.sin(np.radians(rot)) ** 2) / (
-        2.0 * (sigma[1] ** 2))
-        b = ((dirfac) * (np.sin(2.0 * np.radians(rot)) ** 2) / (4.0 * (sigma[0] ** 2))) + (
-        (-1 * dirfac) * (np.sin(2.0 * np.radians(rot)) ** 2) / (4.0 * (sigma[1] ** 2)))
-        c = (np.sin(np.radians(rot)) ** 2) / (2.0 * (sigma[0] ** 2)) + (np.cos(np.radians(rot)) ** 2) / (
-        2.0 * (sigma[1] ** 2))
-
-        psf = np.exp(-1 * (a * (x ** 2) - 2.0 * b * (x * y) + c * (y ** 2)))
-        '''
-        #cube_spatial_smooth = np.empty(cube.shape)
-        #for i in range(cube.shape[0]):
-        #    cube_spatial_smooth[i, :, :] = convolve_fft(cube.data[i, :, :], psf)
-
-        #smooth_cube = ndimage.filters.gaussian_filter1d(cube_spatial_smooth, 4, axis=0, order=0, mode='nearest')
         smooth_cube = ndimage.uniform_filter(cube.data, size=[4, sigma, sigma], mode='constant')  # mode='nearest'
 
         smooth_hdu = fits.PrimaryHDU(smooth_cube, cube.header)
@@ -917,131 +577,69 @@ class ClipCube:
         cube_pbcorr, cube_uncorr = self.readfits()
         cube_uncorr_copy = cube_uncorr.copy()
 
-        if self.sun:
+        # Get a rough estimate of the noise in order to do the clipping
+        noisecube_temp = np.concatenate((cube_uncorr_copy.data[:10, :, :], cube_uncorr_copy.data[-10:, :, :]),
+                                        axis=0)
+        noisecube_temp_hdu = fits.PrimaryHDU(noisecube_temp, cube_uncorr_copy.header)
 
-            # Get a rough estimate of the noise in order to do the clipping
-            noisecube_temp = np.concatenate((cube_uncorr_copy.data[:10, :, :], cube_uncorr_copy.data[-10:, :, :]),
-                                            axis=0)
-            noisecube_temp_hdu = fits.PrimaryHDU(noisecube_temp, cube_uncorr_copy.header)
+        # Create an initial mask and identify first and last channel containing emission
+        mask_full = self.smooth_mask(cube_uncorr_copy, noisecube_temp_hdu)
+        mask_idx = np.where(mask_full == 1)[0]
+        start = mask_idx[0]
+        stop = mask_idx[-1]
 
-            # Create an initial mask and identify first and last channel containing emission
-            mask_full = self.sun_method(cube_uncorr_copy, noisecube_temp_hdu)
-            mask_idx = np.where(mask_full == 1)[0]
-            start = mask_idx[0]
-            stop = mask_idx[-1]
+        # Create an updated noise cube
+        noisecube_uncorr = np.concatenate((cube_uncorr_copy.data[:start, :, :],
+                                           cube_uncorr_copy.data[stop:, :, :]), axis=0)
+        noisecube_uncorr_hdu = fits.PrimaryHDU(noisecube_uncorr, cube_uncorr_copy.header)
 
-            # Create an updated noise cube
-            noisecube_uncorr = np.concatenate((cube_uncorr_copy.data[:start, :, :],
-                                               cube_uncorr_copy.data[stop:, :, :]), axis=0)
-            noisecube_uncorr_hdu = fits.PrimaryHDU(noisecube_uncorr, cube_uncorr_copy.header)
+        # Make a more accurate mask based on the new noise cube
+        mask_full = self.smooth_mask(cube_uncorr_copy, noisecube_uncorr_hdu)
+        mask_hdu = fits.PrimaryHDU(mask_full.astype(int), cube_pbcorr.header)
+        mask_idx = np.where(mask_full == 1)[0]
+        start = mask_idx[0]
+        stop = mask_idx[-1]
 
-            # Make a more accurate mask based on the new noise cube
-            mask_full = self.sun_method(cube_uncorr_copy, noisecube_uncorr_hdu)
-            mask_hdu = fits.PrimaryHDU(mask_full.astype(int), cube_pbcorr.header)
-            mask_idx = np.where(mask_full == 1)[0]
-            start = mask_idx[0]
-            stop = mask_idx[-1]
+        if get_chans:
+            return start, stop
 
-            if get_chans:
-                return start, stop
+        # Spit the cube in an emission and noise part
+        emiscube_pbcorr = cube_pbcorr.data[start:stop, :, :]
+        emiscube_uncorr = cube_uncorr.data[start:stop, :, :]
 
-            # Spit the cube in an emission and noise part
-            emiscube_pbcorr = cube_pbcorr.data[start:stop, :, :]
-            emiscube_uncorr = cube_uncorr.data[start:stop, :, :]
+        noisecube_pbcorr = np.concatenate((cube_pbcorr.data[:start, :, :],
+                                           cube_pbcorr.data[stop:, :, :]), axis=0)
+        noisecube_uncorr = np.concatenate((cube_uncorr_copy.data[:start, :, :],
+                                           cube_uncorr_copy.data[stop:, :, :]), axis=0)
 
-            noisecube_pbcorr = np.concatenate((cube_pbcorr.data[:start, :, :],
-                                               cube_pbcorr.data[stop:, :, :]), axis=0)
-            noisecube_uncorr = np.concatenate((cube_uncorr_copy.data[:start, :, :],
-                                               cube_uncorr_copy.data[stop:, :, :]), axis=0)
+        emiscube_uncorr_hdu = fits.PrimaryHDU(emiscube_uncorr, cube_uncorr_copy.header)
+        noisecube_uncorr_hdu = fits.PrimaryHDU(noisecube_uncorr, cube_uncorr_copy.header)
 
-            emiscube_uncorr_hdu = fits.PrimaryHDU(emiscube_uncorr, cube_uncorr_copy.header)
-            noisecube_uncorr_hdu = fits.PrimaryHDU(noisecube_uncorr, cube_uncorr_copy.header)
-            noisecube_pbcorr_hdu = fits.PrimaryHDU(noisecube_pbcorr, cube_uncorr_copy.header)
+        mask = self.smooth_mask(emiscube_uncorr_hdu, noisecube_uncorr_hdu)
 
-            mask = self.sun_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu)
+        mask_idx = np.where(mask == 1)[0]
+        self.galaxy.start = mask_idx[0]
+        self.galaxy.stop = mask_idx[-1]
 
-            if self.tosave:
-                mask_hdu.header.add_comment('Cube was clipped using the Sun+18 masking method', before='BUNIT')
-                try:
-                    mask_hdu.header.pop('BTYPE')
-                    mask_hdu.header.pop('BUNIT')
-                except:
-                    pass
-                try:
-                    mask_hdu.header.pop('DATAMAX')
-                    mask_hdu.header.pop('DATAMIN')
-                    mask_hdu.header.pop('JTOK')
-                    mask_hdu.header.pop('RESTFRQ')
-                except:
-                    pass
-                mask_hdu.header['CLIP_RMS'] = self.sun_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu, calc_rms=True)
-                mask_hdu.header.comments['CLIP_RMS'] = 'rms value used for clipping in K km/s'
-                mask_hdu.writeto(self.savepath + 'mask_cube.fits', overwrite=True)
+        mask_hdu = fits.PrimaryHDU(mask.astype(int), cube_pbcorr.header)
 
-        else:
-            # Get a rough estimate of the noise in order to do the clipping
-            noisecube_temp = np.concatenate((cube_uncorr_copy.data[:10, :, :], cube_uncorr_copy.data[-10:, :, :]),
-                                            axis=0)
-            noisecube_temp_hdu = fits.PrimaryHDU(noisecube_temp, cube_uncorr_copy.header)
-
-            # Create an initial mask and identify first and last channel containing emission
-            mask_full = self.smooth_mask(cube_uncorr_copy, noisecube_temp_hdu)
-            mask_idx = np.where(mask_full == 1)[0]
-            start = mask_idx[0]
-            stop = mask_idx[-1]
-
-            # Create an updated noise cube
-            noisecube_uncorr = np.concatenate((cube_uncorr_copy.data[:start, :, :],
-                                               cube_uncorr_copy.data[stop:, :, :]), axis=0)
-            noisecube_uncorr_hdu = fits.PrimaryHDU(noisecube_uncorr, cube_uncorr_copy.header)
-
-            # Make a more accurate mask based on the new noise cube
-            mask_full = self.smooth_mask(cube_uncorr_copy, noisecube_uncorr_hdu)
-            mask_hdu = fits.PrimaryHDU(mask_full.astype(int), cube_pbcorr.header)
-            mask_idx = np.where(mask_full == 1)[0]
-            start = mask_idx[0]
-            stop = mask_idx[-1]
-
-            if get_chans:
-                return start, stop
-
-            # Spit the cube in an emission and noise part
-            emiscube_pbcorr = cube_pbcorr.data[start:stop, :, :]
-            emiscube_uncorr = cube_uncorr.data[start:stop, :, :]
-
-            noisecube_pbcorr = np.concatenate((cube_pbcorr.data[:start, :, :],
-                                               cube_pbcorr.data[stop:, :, :]), axis=0)
-            noisecube_uncorr = np.concatenate((cube_uncorr_copy.data[:start, :, :],
-                                               cube_uncorr_copy.data[stop:, :, :]), axis=0)
-
-            emiscube_uncorr_hdu = fits.PrimaryHDU(emiscube_uncorr, cube_uncorr_copy.header)
-            noisecube_uncorr_hdu = fits.PrimaryHDU(noisecube_uncorr, cube_uncorr_copy.header)
-
-            mask = self.smooth_mask(emiscube_uncorr_hdu, noisecube_uncorr_hdu)
-
-            mask_idx = np.where(mask == 1)[0]
-            self.galaxy.start = mask_idx[0]
-            self.galaxy.stop = mask_idx[-1]
-
-            mask_hdu = fits.PrimaryHDU(mask.astype(int), cube_pbcorr.header)
-
-            if self.tosave:
-                mask_hdu.header.add_comment('Cube was clipped using the Dame11 masking method', before='BUNIT')
-                mask_hdu.header.pop('BTYPE')
-                mask_hdu.header.pop('BUNIT')
-                try:
-                    mask_hdu.header.pop('DATAMAX')
-                    mask_hdu.header.pop('DATAMIN')
-                except:
-                    pass
-                try:
-                    mask_hdu.header.pop('JTOK')
-                except:
-                    pass
-                mask_hdu.header.pop('RESTFRQ')
-                mask_hdu.header['CLIP_RMS'] = self.smooth_mask(emiscube_uncorr_hdu, noisecube_uncorr_hdu, return_rms=True)
-                mask_hdu.header.comments['CLIP_RMS'] = 'rms value used for clipping in K km/s'
-                mask_hdu.writeto(self.savepath + 'mask_cube.fits', overwrite=True)
+        if self.tosave:
+            mask_hdu.header.add_comment('Cube was clipped using the Dame11 masking method', before='BUNIT')
+            mask_hdu.header.pop('BTYPE')
+            mask_hdu.header.pop('BUNIT')
+            try:
+                mask_hdu.header.pop('DATAMAX')
+                mask_hdu.header.pop('DATAMIN')
+            except:
+                pass
+            try:
+                mask_hdu.header.pop('JTOK')
+            except:
+                pass
+            mask_hdu.header.pop('RESTFRQ')
+            mask_hdu.header['CLIP_RMS'] = self.smooth_mask(emiscube_uncorr_hdu, noisecube_uncorr_hdu, return_rms=True)
+            mask_hdu.header.comments['CLIP_RMS'] = 'rms value used for clipping in K km/s'
+            mask_hdu.writeto(self.savepath + 'mask_cube.fits', overwrite=True)
 
         emiscube_pbcorr[mask == 0] = 0
         clipped_hdu = fits.PrimaryHDU(emiscube_pbcorr, cube_pbcorr.header)
