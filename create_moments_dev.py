@@ -246,22 +246,22 @@ galaxies = list(set([f.split('/')[6].split('_')[0] for f in files]))
 ifumatched = False
 
 for galaxy in galaxies:
-    if ifumatched:
-        cube = fits.open(path + galaxy + '_co2-1_7m+12m.image.pbcor.smoothed.ifumatched.fits')[0]
-        savepath = path + 'moment_maps/' + galaxy + '_smoothed_ifumatched_'
-    else:
-        #cube = fits.open(path + galaxy + '_co2-1_7m+12m.image.pbcor.smoothed.fits')[0]
-        #savepath = path + 'moment_maps/' + galaxy + '_smoothed_'
-        cube = fits.open(path + galaxy + '/' + galaxy + '_co2-1_12m.image.pbcor.subcube.fits')[0]
-        savepath = path + galaxy + '/moment_maps/' + galaxy + '_'
-        if not os.path.exists(path + galaxy + '/moment_maps'):
-            os.mkdir(path + galaxy + '/moment_maps')
+       
+    if not os.path.exists(path + galaxy + '/moment_maps'):
+        os.mkdir(path + galaxy + '/moment_maps')
+    
+    cubes = glob(path + galaxy + '/*.fits')
+    
+    for cube in cubes:
+        savepath = path + galaxy + '/moment_maps/' + cube.split('/')[-1].split('.fits')[0] + '_'
+
+        calc_moms(fits.open(cube)[0])
 
 #cube.data[cube.data < 0.0024] = 0
 #cube.data[:100, :, :] = 0
 #cube.data[150:, :, :] = 0
 
-    calc_moms(cube)
+    
 
 
 

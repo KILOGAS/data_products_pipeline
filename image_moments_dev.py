@@ -13,16 +13,7 @@ from matplotlib.colors import ListedColormap
 from glob import glob
 
 
-def moment_zero(galaxy, units='Jy/beam km/s', alpha_co=5.4):
-    
-    if ifumatched:
-        mom0 = fits.open(path + galaxy + '_smoothed_ifumatched_mom0_Jyb-1_kms-1.fits')[0]
-    elif smoothed:
-        mom0 = fits.open(path + galaxy + '_smoothed_mom0_Jyb-1_kms-1.fits')[0]
-    else:
-        mom0 = fits.open(path + galaxy + '_mom0_Jyb-1_kms-1.fits')[0]
-        
-    #print(mom0.header)
+def moment_zero(mom0, savename=None, units='Jy/beam km/s', alpha_co=5.4):
 
     fig = plt.figure(figsize=(11, 8))
 
@@ -35,8 +26,6 @@ def moment_zero(galaxy, units='Jy/beam km/s', alpha_co=5.4):
     
     plt.figure()
     plt.imshow(mom0.data)
-    
-    print(np.linspace(np.nanmax(mom0.data)*1e-9, np.nanmax(mom0.data), 20))
 
     f.show_contour(mom0, cmap='magma_r', 
                    levels=np.linspace(np.nanmax(mom0.data)*1e-9, np.nanmax(mom0.data), 20),
@@ -103,40 +92,18 @@ def moment_zero(galaxy, units='Jy/beam km/s', alpha_co=5.4):
 
     plt.tight_layout()
 
-    if units == 'Jy/beam km/s':
-        if smoothed:
-            if ifumatched:
-                plt.savefig(path + galaxy + '_smoothed_ifumatched_mom0_Jyb-1_kms-1.pdf', bbox_inches='tight')
-                plt.savefig(path + galaxy + '_smoothed_ifumatched_mom0_Jyb-1_kms-1.png', bbox_inches='tight')
-            else:
-                plt.savefig(path + galaxy + '_smoothed_mom0_Jyb-1_kms-1.pdf', bbox_inches='tight')
-                plt.savefig(path + galaxy + '_smoothed_mom0_Jyb-1_kms-1.png', bbox_inches='tight')
-        else:
-            plt.savefig(path + galaxy + '_mom0_Jyb-1_kms-1.pdf', bbox_inches='tight')
-            plt.savefig(path + galaxy + '_mom0_Jyb-1_kms-1.png', bbox_inches='tight')
-    #elif units == 'M_Sun/pc^2':
-    #    plt.savefig(self.savepath + 'mom0_Msolpc-2.pdf', bbox_inches='tight')
+    if savename:
+        if units == 'Jy/beam km/s':
+            plt.savefig(path + savename + '.png', bbox_inches='tight')
+            plt.savefig(path + savename + '.pdf', bbox_inches='tight')
+        #elif units == 'M_Sun/pc^2':
+        #    plt.savefig(self.savepath + 'mom0_Msolpc-2.pdf', bbox_inches='tight')
 
 
-def moment_1_2(galaxy, moment):
+def moment_1_2(mom, moment, savename=None):
 
-    if moment == 1:
-        if ifumatched:
-            mom = fits.open(path + galaxy + '_smoothed_ifumatched_mom1.fits')[0]
-        elif smoothed:
-            mom = fits.open(path + galaxy + '_smoothed_mom1.fits')[0]
-        else:
-            mom = fits.open(path + galaxy + '_mom1.fits')[0]
-    elif moment == 2:
-        if ifumatched:
-            mom = fits.open(path + galaxy + '_smoothed_ifumatched_mom2.fits')[0]
-        elif smoothed:
-            mom = fits.open(path + galaxy + '_smoothed_mom2.fits')[0]
-        else:
-            mom = fits.open(path + galaxy + '_mom2.fits')[0]
+    vel_array = np.load(path + savename.split('_mom1')[0].split('_mom2')[0] + '_vel_array.npy')
     
-    vel_array = np.load(path + galaxy + '_vel_array.npy')
-
     #sysvel = (sysvel + 5) // 10 * 10
 
     fig = plt.figure(figsize=(11, 8))
@@ -170,8 +137,10 @@ def moment_1_2(galaxy, moment):
             ticks = np.arange(0, vrange2 + 1, 1)
         elif vrange2 < 100:
             ticks = np.arange(0, vrange2 + 10, 10)
-        else:
+        elif vrange2 < 500:
             ticks = np.arange(0, vrange2 + 20, 20)
+        else:
+            ticks = []
             
         cbar = fig.colorbar(colors, ticks=ticks)
         cbar.set_label(r'Observed $\sigma_v$ [km s$^{-1}$]')
@@ -199,14 +168,18 @@ def moment_1_2(galaxy, moment):
         colors = plt.contourf([[0, 0], [0, 0]], levels=np.linspace(vmin, vmax,
                                                                    len(vel_array)), cmap='sauron')
         
-        #if vrange < 16:
-        #    tickarr = np.arange(-vrange, 0, 3)
-        #elif vrange < 60:
-        #    tickarr = np.arange(-vrange, 0, 10)
-        #elif vrange < 130:
-        #    tickarr = np.arange(-vrange, 0, 20)
-        #else:
-        ticks = np.arange(round(vmin/10) * 10 - 10, round(vmax/10) * 10 + 10, 20)
+        vrange = vel_array[-1] - vel_array[0]
+        
+        if vrange < 16:
+            tickarr = np.arange(round(vmin), round(vmax), 3)
+        elif vrange < 60:
+            tickarr = np.arange(round(vmin/5) * 5 - 5, round(vmax/5) * 5 + 5, 10)
+        elif vrange < 130:
+            tickarr = np.arange(round(vmin/10) * 10 - 10, round(vmax/10) * 10 + 10, 20)
+        elif vrange < 1000:
+            ticks = np.arange(round(vmin/10) * 10 - 10, round(vmax/10) * 10 + 10, 50)
+        else:
+            ticks = []
 
         #ticks = np.concatenate((tickarr, [0], abs(tickarr)))
         cbar = fig.colorbar(colors, ticks=ticks)
@@ -226,30 +199,11 @@ def moment_1_2(galaxy, moment):
 
     #Make sure the axis labels don't fall off the figure
     plt.tight_layout()
+    
+    if savename:
+        plt.savefig(path + savename + '.png', bbox_inches='tight')
+        plt.savefig(path + savename + '.pdf', bbox_inches='tight')
 
-    if moment == 1:
-        if smoothed:
-            if ifumatched:
-                plt.savefig(path + galaxy + '_smoothed_ifumatched_mom1.pdf', bbox_inches='tight')
-                plt.savefig(path + galaxy + '_smoothed_ifumatched_mom1.png', bbox_inches='tight')
-            else:
-                plt.savefig(path + galaxy + '_smoothed_mom1.pdf', bbox_inches='tight')
-                plt.savefig(path + galaxy + '_smoothed_mom1.png', bbox_inches='tight')
-        else:
-            plt.savefig(path + galaxy + '_mom1.pdf', bbox_inches='tight')
-            plt.savefig(path + galaxy + '_mom1.png', bbox_inches='tight')
-            
-    elif moment == 2:
-        if smoothed:
-            if ifumatched:
-                plt.savefig(path + galaxy + '_smoothed_ifumatched_mom2.pdf', bbox_inches='tight')
-                plt.savefig(path + galaxy + '_smoothed_ifumatched_mom2.png', bbox_inches='tight')
-            else:
-                plt.savefig(path + galaxy + '_smoothed_mom2.pdf', bbox_inches='tight')
-                plt.savefig(path + galaxy + '_smoothed_mom2.png', bbox_inches='tight')
-        else:
-            plt.savefig(path + galaxy + '_mom2.pdf', bbox_inches='tight')
-            plt.savefig(path + galaxy + '_mom2.png', bbox_inches='tight')
 
 
 #path = '/mnt/ExtraSSD/ScienceProjects/KILOGAS/IFU_matched_cubes/moment_maps/'
@@ -258,17 +212,20 @@ glob_path = '/mnt/ExtraSSD/ScienceProjects/KILOGAS/Code_Blake/'
 files = glob(glob_path + '**/')
 galaxies = list(set([f.split('/')[6].split('_')[0] for f in files]))
 
-ifumatched = False
-smoothed = False
-
 for galaxy in galaxies:
     
-    path = glob_path + '/' + galaxy + '/moment_maps/'
-
-    moment_zero(galaxy=galaxy, units='Jy/beam km/s', alpha_co=5.4)
-    moment_1_2(galaxy=galaxy, moment=1)
-    moment_1_2(galaxy=galaxy, moment=2)
-
+    path = glob_path + galaxy + '/moment_maps/'
+    
+    mom0s = glob(path + '*mom0*.fits')
+    mom1s = glob(path + '*mom1*.fits')
+    mom2s = glob(path + '*mom2*.fits')
+    
+    for mom0 in mom0s:
+        moment_zero(fits.open(mom0)[0], savename=mom0.split('/')[-1].split('.fits')[0], units='Jy/beam km/s', alpha_co=5.4)
+    for mom1 in mom1s:
+        moment_1_2(fits.open(mom1)[0], savename=mom1.split('/')[-1].split('.fits')[0], moment=1)
+    for mom2 in mom2s:
+        moment_1_2(fits.open(mom2)[0], savename=mom2.split('/')[-1].split('.fits')[0], moment=2)
 
 
 
