@@ -45,7 +45,7 @@ def new_header(header):
     return header
 
 
-def create_vel_array(cube):
+def create_vel_array(cube, savepath):
     """
     Creates the velocity array corresponding to the spectral axis
     of the cube in km/s.
@@ -141,7 +141,7 @@ def add_clipping_keywords(self, header):
     return header
 
 
-def calc_moms(cube, units='Jy/beam km/s', alpha_co=5.4):
+def calc_moms(cube, savepath, units='Jy/beam km/s', alpha_co=5.4):
     """
     Clip the spectral cube according to the desired method (either the 
     method Pythonified by Jiayi Sun or the more basic smooth + clip 
@@ -180,7 +180,7 @@ def calc_moms(cube, units='Jy/beam km/s', alpha_co=5.4):
 
     """
 
-    vel_array, vel_narray, vel_fullarray, dv = create_vel_array(cube)
+    vel_array, vel_narray, vel_fullarray, dv = create_vel_array(cube, savepath)
 
     if units == 'M_Sun/pc^2':
         pass
@@ -236,30 +236,30 @@ def calc_moms(cube, units='Jy/beam km/s', alpha_co=5.4):
     mom2_hdu.writeto(savepath + 'mom2.fits', overwrite=True)
 
 
-
-
-path = '/mnt/ExtraSSD/ScienceProjects/KILOGAS/Code_Blake/'
-
-files = glob(path + '**/*subcube.fits')
-galaxies = list(set([f.split('/')[6].split('_')[0] for f in files]))
-
-ifumatched = False
-
-for galaxy in galaxies:
-       
-    if not os.path.exists(path + galaxy + '/moment_maps'):
-        os.mkdir(path + galaxy + '/moment_maps')
+def perform_moment_creation(path):
     
-    cubes = glob(path + galaxy + '/*.fits')
+    #files = glob(path + '**/*subcube.fits')
+    files = glob(path + '**/*test.fits')
+    galaxies = list(set([f.split('/')[6].split('_')[0] for f in files]))
     
-    for cube in cubes:
-        savepath = path + galaxy + '/moment_maps/' + cube.split('/')[-1].split('.fits')[0] + '_'
+    #galaxies = ['KGAS58']
+    
+    for galaxy in galaxies:
+             
+        if not os.path.exists(path + galaxy + '/moment_maps'):
+            os.mkdir(path + galaxy + '/moment_maps')
+        
+        cubes = glob(path + galaxy + '**/*test.fits')
+        
+        for cube in cubes:
+            savepath = path + galaxy + '/moment_maps/' + cube.split('/')[-1].split('.fits')[0] + '_'
+    
+            calc_moms(fits.open(cube)[0], savepath)
 
-        calc_moms(fits.open(cube)[0])
 
-#cube.data[cube.data < 0.0024] = 0
-#cube.data[:100, :, :] = 0
-#cube.data[150:, :, :] = 0
+if __name__ == '__main__':
+    path = '/mnt/ExtraSSD/ScienceProjects/KILOGAS/Code_Blake/'
+    perform_moment_creation(path)
 
     
 

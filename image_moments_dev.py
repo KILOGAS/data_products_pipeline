@@ -13,7 +13,7 @@ from matplotlib.colors import ListedColormap
 from glob import glob
 
 
-def moment_zero(mom0, savename=None, units='Jy/beam km/s', alpha_co=5.4):
+def moment_zero(mom0, galaxy, path, savename=None, units='Jy/beam km/s', alpha_co=5.4):
 
     fig = plt.figure(figsize=(11, 8))
 
@@ -23,9 +23,6 @@ def moment_zero(mom0, savename=None, units='Jy/beam km/s', alpha_co=5.4):
 
     # add the galaxy name in the upper right corner
     f.add_label(0.8, 0.9, galaxy, relative=True, size=30)
-    
-    plt.figure()
-    plt.imshow(mom0.data)
 
     f.show_contour(mom0, cmap='magma_r', 
                    levels=np.linspace(np.nanmax(mom0.data)*1e-9, np.nanmax(mom0.data), 20),
@@ -205,30 +202,37 @@ def moment_1_2(mom, moment, savename=None):
         plt.savefig(path + savename + '.pdf', bbox_inches='tight')
 
 
-
-#path = '/mnt/ExtraSSD/ScienceProjects/KILOGAS/IFU_matched_cubes/moment_maps/'
-glob_path = '/mnt/ExtraSSD/ScienceProjects/KILOGAS/Code_Blake/'
-
-files = glob(glob_path + '**/')
-galaxies = list(set([f.split('/')[6].split('_')[0] for f in files]))
-
-for galaxy in galaxies:
+def perform_moment_imaging(glob_path):
+    #path = '/mnt/ExtraSSD/ScienceProjects/KILOGAS/IFU_matched_cubes/moment_maps/'
+    #glob_path = '/mnt/ExtraSSD/ScienceProjects/KILOGAS/Code_Blake/'
     
-    path = glob_path + galaxy + '/moment_maps/'
+    files = glob(glob_path + '**/')
+    galaxies = list(set([f.split('/')[6].split('_')[0] for f in files]))
+    #galaxies = ['KGAS58']
     
-    mom0s = glob(path + '*mom0*.fits')
-    mom1s = glob(path + '*mom1*.fits')
-    mom2s = glob(path + '*mom2*.fits')
-    
-    for mom0 in mom0s:
-        moment_zero(fits.open(mom0)[0], savename=mom0.split('/')[-1].split('.fits')[0], units='Jy/beam km/s', alpha_co=5.4)
-    for mom1 in mom1s:
-        moment_1_2(fits.open(mom1)[0], savename=mom1.split('/')[-1].split('.fits')[0], moment=1)
-    for mom2 in mom2s:
-        moment_1_2(fits.open(mom2)[0], savename=mom2.split('/')[-1].split('.fits')[0], moment=2)
+    for galaxy in galaxies:
+        
+        path = glob_path + galaxy + '/moment_maps/'
+        
+        mom0s = glob(path + '*mom0*.fits')
+        mom1s = glob(path + '*mom1*.fits')
+        mom2s = glob(path + '*mom2*.fits')
+        
+        #mom0s = ['/mnt/ExtraSSD/ScienceProjects/KILOGAS/IFU_matched_cubes/KGAS58/moment_maps/KGAS58_test_mom0_Jyb-1_kms-1.fits']
+        
+        for mom0 in mom0s:
+            moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
+                        savename=mom0.split('/')[-1].split('.fits')[0], 
+                        units='Jy/beam km/s', alpha_co=5.4)
+        #for mom1 in mom1s:
+        #    moment_1_2(fits.open(mom1)[0], savename=mom1.split('/')[-1].split('.fits')[0], moment=1)
+        #for mom2 in mom2s:
+        #    moment_1_2(fits.open(mom2)[0], savename=mom2.split('/')[-1].split('.fits')[0], moment=2)
 
 
-
+if __name__ == '__main__':
+    path = '/mnt/ExtraSSD/ScienceProjects/KILOGAS/Code_Blake/'
+    perform_moment_imaging(path)
 
 
 
