@@ -97,9 +97,9 @@ def moment_zero(mom0, galaxy, path, savename=None, units='Jy/beam km/s', alpha_c
         #    plt.savefig(self.savepath + 'mom0_Msolpc-2.pdf', bbox_inches='tight')
 
 
-def moment_1_2(mom, moment, savename=None):
+def moment_1_2(mom, galaxy, moment, path, savename=None):
 
-    vel_array = np.load(path + savename.split('_mom1')[0].split('_mom2')[0] + '_vel_array.npy')
+    vel_array = np.load(path + '/' + galaxy + '/moment_maps/' + savename.split('_mom1')[0].split('_mom2')[0] + '_vel_array.npy')
     
     #sysvel = (sysvel + 5) // 10 * 10
 
@@ -198,8 +198,8 @@ def moment_1_2(mom, moment, savename=None):
     plt.tight_layout()
     
     if savename:
-        plt.savefig(path + savename + '.png', bbox_inches='tight')
-        plt.savefig(path + savename + '.pdf', bbox_inches='tight')
+        plt.savefig(path + galaxy + '/' + 'moment_maps/' + savename + '.png', bbox_inches='tight')
+        plt.savefig(path + galaxy + '/' + 'moment_maps/' + savename + '.pdf', bbox_inches='tight')
 
 
 def perform_moment_imaging(glob_path):
@@ -224,10 +224,11 @@ def perform_moment_imaging(glob_path):
             moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
                         savename=mom0.split('/')[-1].split('.fits')[0], 
                         units='Jy/beam km/s', alpha_co=5.4)
-        #for mom1 in mom1s:
-        #    moment_1_2(fits.open(mom1)[0], savename=mom1.split('/')[-1].split('.fits')[0], moment=1)
-        #for mom2 in mom2s:
-        #    moment_1_2(fits.open(mom2)[0], savename=mom2.split('/')[-1].split('.fits')[0], moment=2)
+            
+        for mom1 in mom1s:
+            moment_1_2(fits.open(mom1)[0], savename=mom1.split('/')[-1].split('.fits')[0], galaxy=galaxy, moment=1, path=glob_path)
+        for mom2 in mom2s:
+            moment_1_2(fits.open(mom2)[0], savename=mom2.split('/')[-1].split('.fits')[0], galaxy=galaxy, moment=2, path=glob_path)
 
 
 if __name__ == '__main__':
