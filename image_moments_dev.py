@@ -13,7 +13,7 @@ from matplotlib.colors import ListedColormap
 from glob import glob
 
 
-def moment_zero(mom0, galaxy, path, savename=None, units='Jy/beam km/s', alpha_co=5.4):
+def moment_zero(mom0, galaxy, path, savename=None, units='Jy/beam km/s', alpha_co=5.4, peak=False):
 
     fig = plt.figure(figsize=(11, 8))
 
@@ -68,7 +68,9 @@ def moment_zero(mom0, galaxy, path, savename=None, units='Jy/beam km/s', alpha_c
 
     cbar = fig.colorbar(colors, ticks=ticks)
 
-    if units == 'Jy/beam km/s':
+    if peak:
+        cbar.set_label('Peak temperature [K]')
+    elif units == 'Jy/beam km/s':
         cbar.set_label(r'Integrated intensity [Jy b$^{-1}$ km s$^{-1}$]')
     elif units == 'M_Sun/pc^2':
         cbar.set_label(r'Surface density [M$_\odot$ pc$^{-2}$]')
@@ -90,7 +92,10 @@ def moment_zero(mom0, galaxy, path, savename=None, units='Jy/beam km/s', alpha_c
     plt.tight_layout()
 
     if savename:
-        if units == 'Jy/beam km/s':
+        if peak:
+            plt.savefig(path + savename + '.png', bbox_inches='tight')
+            plt.savefig(path + savename + '.pdf', bbox_inches='tight') 
+        elif units == 'Jy/beam km/s':
             plt.savefig(path + savename + '.png', bbox_inches='tight')
             plt.savefig(path + savename + '.pdf', bbox_inches='tight')
         #elif units == 'M_Sun/pc^2':
@@ -215,6 +220,7 @@ def perform_moment_imaging(glob_path):
         path = glob_path + galaxy + '/moment_maps/'
         
         mom0s = glob(path + '*mom0*.fits')
+        peakTs = glob(path + '*peak_temp_k*.fits')
         mom1s = glob(path + '*mom1*.fits')
         mom2s = glob(path + '*mom2*.fits')
         
@@ -223,8 +229,11 @@ def perform_moment_imaging(glob_path):
         for mom0 in mom0s:
             moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
                         savename=mom0.split('/')[-1].split('.fits')[0], 
-                        units='Jy/beam km/s', alpha_co=5.4)
-            
+                        units='Jy/beam km/s', alpha_co=5.4, peak=False)
+        for peakT in peakTs:
+            moment_zero(fits.open(peakT)[0], galaxy=galaxy, path=path, 
+                        savename=peakT.split('/')[-1].split('.fits')[0], 
+                        units='Jy/beam km/s', alpha_co=5.4, peak=True)
         for mom1 in mom1s:
             moment_1_2(fits.open(mom1)[0], savename=mom1.split('/')[-1].split('.fits')[0], galaxy=galaxy, moment=1, path=glob_path)
         for mom2 in mom2s:

@@ -186,6 +186,10 @@ def calc_moms(cube, savepath, units='Jy/beam km/s', alpha_co=5.4):
         pass
     elif units == 'Jy/beam km/s':
         mom0 = np.nansum((cube.data * dv), axis=0)
+    elif units == 'K':
+        pass
+    elif units == 'K/pc^2':
+        glob_tab = fits.open('/mnt/ExtraSSD/ScienceProjects/KILOGAS/KILOGAS_global_catalog_FWHM.fits')[1]
         
     mom1 = np.nansum(cube.data * vel_narray, axis=0) / np.nansum(cube.data, axis=0)
     mom2 = np.sqrt(np.nansum(abs(cube.data) * (vel_narray - mom1) ** 2, axis=0) / np.nansum(abs(cube.data), axis=0))
@@ -234,6 +238,32 @@ def calc_moms(cube, savepath, units='Jy/beam km/s', alpha_co=5.4):
         mom0_hdu.writeto(savepath + 'mom0_Jyb-1_kms-1.fits', overwrite=True)
     mom1_hdu.writeto(savepath + 'mom1.fits', overwrite=True)
     mom2_hdu.writeto(savepath + 'mom2.fits', overwrite=True)
+    
+    
+def calc_uncs(cube):
+    
+    # Calculate the number of channels by converting the cube into a boolean
+    cube_bool = cube.data.copy()
+    
+    # Set any nans to 0, or they will be converted to True
+    cube_bool[cube_bool != cube_bool] = 0
+    
+    N_map = np.sum(cube_bool, axis=0)
+    
+    # The noise map is the rms divided by the PB map
+    #pb_map = 
+    #noise_map = cube.header['CLIP_RMS'] / pb_map
+    
+    
+def calc_peak_t(cube, savepath):
+    
+    peak_temp = np.nanmax(cube.data, axis=0)
+    
+    peak_temp_hdu = fits.PrimaryHDU(peak_temp, new_header(cube.header))
+    peak_temp_hdu.header['BTYPE'] = 'Peak temperature'
+    peak_temp_hdu.header['BUNIT'] = 'K'; peak_temp_hdu.header.comments['BUNIT'] = ''
+
+    peak_temp_hdu.writeto(savepath + 'peak_temp_k.fits', overwrite=True)
 
 
 def perform_moment_creation(path):
@@ -254,7 +284,10 @@ def perform_moment_creation(path):
         for cube in cubes:
             savepath = path + galaxy + '/moment_maps/' + cube.split('/')[-1].split('.fits')[0] + '_'
     
-            calc_moms(fits.open(cube)[0], savepath)
+            cube_fits = fits.open(cube)[0]
+    
+            calc_moms(cube_fits, savepath)
+            calc_peak_t(cube_fits, savepath)
 
 
 if __name__ == '__main__':
