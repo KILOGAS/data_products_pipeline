@@ -94,7 +94,8 @@ def create_vel_array(cube, savepath):
     vel_narray = np.tile(vel_array, (len(cube.data[0, 0, :]), len(cube.data[0, :, 0]), 1)).transpose()
     vel_array_full = (np.arange(0, len(cube.data[:, 0, 0])) - v_ref + 1) * v_step + v_val
     
-    np.save(savepath + 'vel_array.npy', vel_array)
+    if savepath:
+        np.save(savepath + 'vel_array.npy', vel_array)
 
     return vel_array, vel_narray, vel_array_full, v_step
 
@@ -141,7 +142,7 @@ def add_clipping_keywords(self, header):
     return header
 
 
-def calc_moms(cube, savepath, units='Jy/beam km/s', alpha_co=5.4):
+def calc_moms(cube, savepath=None, units='Jy/beam km/s', alpha_co=5.4):
     """
     Clip the spectral cube according to the desired method (either the 
     method Pythonified by Jiayi Sun or the more basic smooth + clip 
@@ -232,27 +233,75 @@ def calc_moms(cube, savepath, units='Jy/beam km/s', alpha_co=5.4):
     #    mom0_hdu.header['ALPHA_CO'] = alpha_co; #mom0_hdu.header.comments['ALPHA_CO'] = 'Assuming a line ratio of 0.8'
     #mom1_hdu.header['SYSVEL'] = sysvel; mom1_hdu.header.comments['SYSVEL'] = 'km/s'
 
-    if units == 'M_Sun/pc^2':
-        mom0_hdu.writeto(savepath + 'mom0_Msolpc-2.fits', overwrite=True)
-    elif units == 'Jy/beam km/s':
-        mom0_hdu.writeto(savepath + 'mom0_Jyb-1_kms-1.fits', overwrite=True)
-    mom1_hdu.writeto(savepath + 'mom1.fits', overwrite=True)
-    mom2_hdu.writeto(savepath + 'mom2.fits', overwrite=True)
+    if savepath:
+        if units == 'M_Sun/pc^2':
+            mom0_hdu.writeto(savepath + 'mom0_Msolpc-2.fits', overwrite=True)
+        elif units == 'Jy/beam km/s':
+            mom0_hdu.writeto(savepath + 'mom0_Jyb-1_kms-1.fits', overwrite=True)
+        mom1_hdu.writeto(savepath + 'mom1.fits', overwrite=True)
+        mom2_hdu.writeto(savepath + 'mom2.fits', overwrite=True)
+        
+        # Create a dummy alpha_co map
+        alpha_co_map = np.ones_like(mom0)
+        alpha_co_map[mom0 != mom0] = 0
+        alpha_co_map[mom0 == 0] = 0
+        alpha_co_map *= alpha_co
+        alpha_co_hdu = fits.PrimaryHDU(mom0, moment_header)
+        alpha_co_hdu.writeto(savepath + 'alpha_co.fits', overwrite=True)
+        
+    return mom0_hdu, mom1_hdu, mom2_hdu
     
-    
-def calc_uncs(cube):
+def calc_uncs(cube, path, galaxy, savepath):
     
     # Calculate the number of channels by converting the cube into a boolean
     cube_bool = cube.data.copy()
     
     # Set any nans to 0, or they will be converted to True
     cube_bool[cube_bool != cube_bool] = 0
+    cube_bool = cube_bool.astype('bool')
     
     N_map = np.sum(cube_bool, axis=0)
     
-    # The noise map is the rms divided by the PB map
-    #pb_map = 
-    #noise_map = cube.header['CLIP_RMS'] / pb_map
+    # The noise map is the rms divided by the PB map. The PB map should have 
+    # values only where the clipped data cube has values.
+    pb_file = glob(path + galaxy + '*.pb.fits')[0]
+    pb_cube = fits.open(pb_file)[0]
+    pb_cube.data[cube_bool.data != cube_bool.data] = np.nan
+    noise_cube = cube.header['CLIP_RMS'] / pb_cube.data
+    
+    # Use the median value of the PB cube along the spectral axis to create a 
+    # representative 2D map.
+    noise_map = np.nanmedian(noise_cube, axis=0)
+    
+    
+    # Calculate the noise maps for the moment maps
+    mom0_hdu, mom1_hdu, mom2_hdu = calc_moms(cube)
+    
+    if cube.header['CTYPE3'] != 'VOPT':
+        print('CHECK UNITS OF THE SPECTRAL AXIS!')
+        return
+    
+    mom0_uncertainty = noise_map * np.sqrt(N_map) * abs(cube.header['CDELT3'] / 1000)
+    mom0_uncertainty_hdu = fits.PrimaryHDU(mom0_uncertainty, mom0_hdu.header)
+    
+    mom1_uncertainty = (N_map * abs(cube.header['CDELT3'] / 1000) / (2 * np.sqrt(3))) * \
+                       (mom0_uncertainty / mom0_hdu.data)  # Eqn 15 doc. Chris
+    mom1_uncertainty_hdu = fits.PrimaryHDU(mom1_uncertainty, mom1_hdu.header)
+                       
+           
+    mom2_uncertainty = ((N_map * abs(cube.header['CDELT3'] / 1000)) ** 2 / (8 * np.sqrt(5))) * \
+                       (mom0_uncertainty / mom0_hdu.data) * (mom2_hdu.data) ** -1  # Eqn 30 doc. Chris           
+    mom2_uncertainty_hdu = fits.PrimaryHDU(mom2_uncertainty, mom2_hdu.header)
+    
+    
+    SN_map = mom0_hdu.data / mom0_uncertainty
+    SN_hdu = fits.PrimaryHDU(SN_map, mom0_hdu.header)
+    SN_hdu.header.pop('BUNIT')
+    
+    mom0_uncertainty_hdu.writeto(savepath + 'mom0_unc.fits', overwrite=True)
+    SN_hdu.writeto(savepath + 'mom0_SN.fits', overwrite=True)
+    mom1_uncertainty_hdu.writeto(savepath + 'mom1_unc.fits', overwrite=True)
+    mom2_uncertainty_hdu.writeto(savepath + 'mom2_unc.fits', overwrite=True)
     
     
 def calc_peak_t(cube, savepath):
@@ -272,7 +321,7 @@ def perform_moment_creation(path):
     files = glob(path + '**/*test.fits')
     galaxies = list(set([f.split('/')[6].split('_')[0] for f in files]))
     
-    #galaxies = ['KGAS58']
+    galaxies = ['KGAS26']
     
     for galaxy in galaxies:
              
@@ -288,6 +337,7 @@ def perform_moment_creation(path):
     
             calc_moms(cube_fits, savepath)
             calc_peak_t(cube_fits, savepath)
+            calc_uncs(cube_fits, path, galaxy, savepath)
 
 
 if __name__ == '__main__':
