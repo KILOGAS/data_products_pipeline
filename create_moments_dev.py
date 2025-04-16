@@ -3,6 +3,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from glob import glob
 import os
+from astropy.cosmology import FlatLambdaCDM
 
 
 def beam_area(cube, cellsize):
@@ -142,7 +143,7 @@ def add_clipping_keywords(self, header):
     return header
 
 
-def calc_moms(cube, savepath=None, units='Jy/beam km/s', alpha_co=5.4):
+def calc_moms(cube, galaxy, savepath=None, units='K km/s', alpha_co=5.4, R21=0.7):
     """
     Clip the spectral cube according to the desired method (either the 
     method Pythonified by Jiayi Sun or the more basic smooth + clip 
@@ -183,14 +184,32 @@ def calc_moms(cube, savepath=None, units='Jy/beam km/s', alpha_co=5.4):
 
     vel_array, vel_narray, vel_fullarray, dv = create_vel_array(cube, savepath)
 
-    if units == 'M_Sun/pc^2':
-        pass
-    elif units == 'Jy/beam km/s':
-        mom0 = np.nansum((cube.data * dv), axis=0)
-    elif units == 'K':
-        pass
-    elif units == 'K/pc^2':
-        glob_tab = fits.open('/mnt/ExtraSSD/ScienceProjects/KILOGAS/KILOGAS_global_catalog_FWHM.fits')[1]
+    mom0 = np.nansum((cube.data * dv), axis=0)
+    
+    # Set redshift parameters needed for physical unit calculations
+    glob_tab = fits.open('/mnt/ExtraSSD/ScienceProjects/KILOGAS/KILOGAS_global_catalog_FWHM.fits')[1]        
+    z = glob_tab.data['Z'][glob_tab.data['KGAS_ID'] == int(galaxy.split('KGAS')[1])][0]
+    
+    cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
+    
+    if units == 'Msol pc-2':
+        mom0 *= alpha_co
+        mom0 *= R21
+        mom0 *= (1 + z)
+        mom0 = np.log10(mom0)
+        
+    elif units == 'Msol/pix':
+        pc_to_pix = (cube.header['CDELT2'] * cosmo.kpc_proper_per_arcmin(z).value * 60 * 1000) ** 2
+        
+        mom0 *= alpha_co
+        mom0 *= R21
+        mom0 *= (1 + z)
+        mom0 *= pc_to_pix
+        mom0 = np.log10(mom0)
+    
+    elif units == 'K kms pc^2':
+        mom0 *= cosmo.luminosity_distance(z) ** 2
+        mom0 /= (1 + z)        
         
     mom1 = np.nansum(cube.data * vel_narray, axis=0) / np.nansum(cube.data, axis=0)
     mom2 = np.sqrt(np.nansum(abs(cube.data) * (vel_narray - mom1) ** 2, axis=0) / np.nansum(abs(cube.data), axis=0))
@@ -218,15 +237,33 @@ def calc_moms(cube, savepath=None, units='Jy/beam km/s', alpha_co=5.4):
     #self.pixel_size_check(header=mom0_hdu.header)
 
     # Change or add any (additional) keywords to the headers
-    if units == 'M_Sun/pc^2':
-        mom0_hdu.header['BTYPE'] = 'Column density'
-        mom0_hdu.header.comments['BTYPE'] = 'Total molecular gas (H_2 + He)'
+    if units == 'K km/s pc^2':
+        mom0_hdu.header['BTYPE'] = 'Lco'
+        mom0_hdu.header.comments['BTYPE'] = 'CO luminosity'
+        mom0_hdu.header['BUNIT'] = units
+        mom0_hdu.header.comments['BUNIT'] = ''
+    elif units == 'Msol pc-2':
+        mom0_hdu.header['BTYPE'] = 'mmol pc^-2'
+        mom0_hdu.header.comments['BTYPE'] = 'Molecular gas mass surface density'
+        mom0_hdu.header['BUNIT'] = 'log Msol pc^-2'
+        mom0_hdu.header.comments['BUNIT'] = ''
+    elif units == 'Msol/pix':
+        mom0_hdu.header['BTYPE'] = 'mmol_pix'
+        mom0_hdu.header.comments['BTYPE'] = 'Molecular gas mass in pixel'
+        mom0_hdu.header['BUNIT'] = 'log Msol'
+        mom0_hdu.header.comments['BUNIT'] = ''
     else:
-        mom0_hdu.header['BTYPE'] = 'Integrated intensity'
+        mom0_hdu.header['BTYPE'] = 'lco'
+        mom0_hdu.header.comments['BTYPE'] = 'CO surface brightness'
+        mom0_hdu.header['BUNIT'] = units
+        mom0_hdu.header.comments['BUNIT'] = ''
 
-    mom1_hdu.header['BTYPE'] = 'Velocity'
-    mom2_hdu.header['BTYPE'] = 'Linewidth'
-    mom0_hdu.header['BUNIT'] = units; mom0_hdu.header.comments['BUNIT'] = ''
+    mom1_hdu.header['BTYPE'] = 'co_vel'
+    mom2_hdu.header['BTYPE'] = 'co_obs_lw'
+    
+    mom1_hdu.header.comments['BTYPE'] = 'Absolute CO velocity'
+    mom2_hdu.header.comments['BTYPE'] = 'Observed line of sight CO line width'
+     
     mom1_hdu.header['BUNIT'] = 'km/s'; mom1_hdu.header.comments['BUNIT'] = ''
     mom2_hdu.header['BUNIT'] = 'km/s'; mom2_hdu.header.comments['BUNIT'] = ''
     #if not self.sample == 'viva' or self.sample == 'things':
@@ -234,24 +271,28 @@ def calc_moms(cube, savepath=None, units='Jy/beam km/s', alpha_co=5.4):
     #mom1_hdu.header['SYSVEL'] = sysvel; mom1_hdu.header.comments['SYSVEL'] = 'km/s'
 
     if savepath:
-        if units == 'M_Sun/pc^2':
-            mom0_hdu.writeto(savepath + 'mom0_Msolpc-2.fits', overwrite=True)
-        elif units == 'Jy/beam km/s':
-            mom0_hdu.writeto(savepath + 'mom0_Jyb-1_kms-1.fits', overwrite=True)
+        if units == 'K km/s':
+            mom0_hdu.writeto(savepath + 'lco_K_kms-1.fits', overwrite=True)
+        elif units == 'K km/s pc^2':
+            mom0_hdu.writeto(savepath + 'Lco_K_kms-1_pc2.fits', overwrite=True)
+        elif units == 'Msol pc-2':
+            mom0_hdu.writeto(savepath + 'mmol_pc-2.fits', overwrite=True)
+        elif units == 'Msol/pix':
+            mom0_hdu.writeto(savepath + 'mmol_pix-1.fits', overwrite=True)
         mom1_hdu.writeto(savepath + 'mom1.fits', overwrite=True)
         mom2_hdu.writeto(savepath + 'mom2.fits', overwrite=True)
         
         # Create a dummy alpha_co map
-        alpha_co_map = np.ones_like(mom0)
-        alpha_co_map[mom0 != mom0] = 0
-        alpha_co_map[mom0 == 0] = 0
-        alpha_co_map *= alpha_co
-        alpha_co_hdu = fits.PrimaryHDU(mom0, moment_header)
-        alpha_co_hdu.writeto(savepath + 'alpha_co.fits', overwrite=True)
+        #alpha_co_map = np.ones_like(mom0)
+        #alpha_co_map[mom0 != mom0] = 0
+        #alpha_co_map[mom0 == 0] = 0
+        #alpha_co_map *= alpha_co
+        #alpha_co_hdu = fits.PrimaryHDU(mom0, moment_header)
+        #alpha_co_hdu.writeto(savepath + 'alpha_co.fits', overwrite=True)
         
     return mom0_hdu, mom1_hdu, mom2_hdu
     
-def calc_uncs(cube, path, galaxy, savepath):
+def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=5.4, R21=0.7):
     
     # Calculate the number of channels by converting the cube into a boolean
     cube_bool = cube.data.copy()
@@ -264,7 +305,12 @@ def calc_uncs(cube, path, galaxy, savepath):
     
     # The noise map is the rms divided by the PB map. The PB map should have 
     # values only where the clipped data cube has values.
-    pb_file = glob(path + galaxy + '*.pb.fits')[0]
+    try:
+        pb_file = glob(path + '/' + galaxy + '/' + galaxy + '*.pb.fits')[0]
+    except:
+        print('PB file does not exist, uncertainty maps will not be created.')
+        return
+    
     pb_cube = fits.open(pb_file)[0]
     pb_cube.data[cube_bool.data != cube_bool.data] = np.nan
     noise_cube = cube.header['CLIP_RMS'] / pb_cube.data
@@ -273,37 +319,89 @@ def calc_uncs(cube, path, galaxy, savepath):
     # representative 2D map.
     noise_map = np.nanmedian(noise_cube, axis=0)
     
+    # Set redshift parameters needed for physical unit calculations
+    glob_tab = fits.open('/mnt/ExtraSSD/ScienceProjects/KILOGAS/KILOGAS_global_catalog_FWHM.fits')[1]        
+    z = glob_tab.data['Z'][glob_tab.data['KGAS_ID'] == int(galaxy.split('KGAS')[1])][0]
     
-    # Calculate the noise maps for the moment maps
-    mom0_hdu, mom1_hdu, mom2_hdu = calc_moms(cube)
-    
-    if cube.header['CTYPE3'] != 'VOPT':
-        print('CHECK UNITS OF THE SPECTRAL AXIS!')
-        return
+    cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
     
     mom0_uncertainty = noise_map * np.sqrt(N_map) * abs(cube.header['CDELT3'] / 1000)
-    mom0_uncertainty_hdu = fits.PrimaryHDU(mom0_uncertainty, mom0_hdu.header)
+
+    if units == 'Msol pc-2':
+        mom0_hdu, _, _ = calc_moms(cube, galaxy, savepath=None, units='Msol pc-2')
+        mom0_uncertainty *= alpha_co
+        mom0_uncertainty *= R21
+        mom0_uncertainty *= (1 + z)
+        mom0_uncertainty *= 0.434 * (mom0_uncertainty / 10 ** mom0_hdu.data)
+        
+        mom0_uncertainty_hdu = fits.PrimaryHDU(mom0_uncertainty, mom0_hdu.header)
+        mom0_uncertainty_hdu.header['BTYPE'] = 'mmol pc^-2 error'
+        mom0_uncertainty_hdu.header.comments['BTYPE'] = 'Error mol. gas mass surf. dens.'
+        mom0_hdu.header['BUNIT'] = 'dex'
+        mom0_hdu.header.comments['BUNIT'] = ''
+   
+        mom0_uncertainty_hdu.writeto(savepath + 'mmol_pc2_err.fits', overwrite=True)
+        
+    elif units == 'Msol/pix':
+        mom0_hdu, _, _ = calc_moms(cube, galaxy, savepath=None, units='Msol/pix')
+        
+        pc_to_pix = (cube.header['CDELT2'] * cosmo.kpc_proper_per_arcmin(z).value * 60 * 1000) ** 2
+        
+        mom0_uncertainty *= alpha_co
+        mom0_uncertainty *= R21
+        mom0_uncertainty *= (1 + z)
+        mom0_uncertainty *= pc_to_pix
+        mom0_uncertainty  *= 0.434 * (mom0_uncertainty / 10 ** mom0_hdu.data)
+        
+        mom0_uncertainty_hdu = fits.PrimaryHDU(mom0_uncertainty, mom0_hdu.header)
+        mom0_uncertainty_hdu.header['BTYPE'] = 'mmol error'
+        mom0_uncertainty_hdu.header.comments['BTYPE'] = 'Error mol. gas mass in pixel'
+        mom0_hdu.header['BUNIT'] = 'dex'
+        mom0_hdu.header.comments['BUNIT'] = ''
+        
+        mom0_uncertainty_hdu.writeto(savepath + 'mmol_pix_err.fits', overwrite=True)
     
-    mom1_uncertainty = (N_map * abs(cube.header['CDELT3'] / 1000) / (2 * np.sqrt(3))) * \
-                       (mom0_uncertainty / mom0_hdu.data)  # Eqn 15 doc. Chris
-    mom1_uncertainty_hdu = fits.PrimaryHDU(mom1_uncertainty, mom1_hdu.header)
-                       
-           
-    mom2_uncertainty = ((N_map * abs(cube.header['CDELT3'] / 1000)) ** 2 / (8 * np.sqrt(5))) * \
-                       (mom0_uncertainty / mom0_hdu.data) * (mom2_hdu.data) ** -1  # Eqn 30 doc. Chris           
-    mom2_uncertainty_hdu = fits.PrimaryHDU(mom2_uncertainty, mom2_hdu.header)
+    elif units == 'K kms pc^2':
+        mom0_hdu, _, _, = calc_moms(cube, galaxy, units='K km/s pc^2')
+        mom0_uncertainty *= cosmo.luminosity_distance(z) ** 2
+        mom0_uncertainty /= (1 + z)
+        
+        mom0_uncertainty_hdu = fits.PrimaryHDU(mom0_uncertainty, mom0_hdu.header)
+        mom0_uncertainty_hdu.header['BTYPE'] = 'Lco error'
+        mom0_uncertainty_hdu.header.comments['BTYPE'] = 'Error in CO luminosity'
+        mom0_hdu.header['BUNIT'] = 'K km s^-1 pc^2'
+        mom0_hdu.header.comments['BUNIT'] = ''
+        
+        mom0_uncertainty_hdu.writeto(savepath + 'Lco_err.fits', overwrite=True)
+        
+    else:
+        mom0_hdu, mom1_hdu, mom2_hdu = calc_moms(cube, galaxy)
+        
+        mom0_uncertainty_hdu = fits.PrimaryHDU(mom0_uncertainty, mom0_hdu.header)
+        mom0_uncertainty_hdu.header['BTYPE'] = 'lco error'
+        mom0_uncertainty_hdu.header.comments['BTYPE'] = 'Error in CO SB'
+        mom0_hdu.header['BUNIT'] = 'K km s^-1'
+        mom0_hdu.header.comments['BUNIT'] = ''
+        
+        mom0_uncertainty_hdu.writeto(savepath + 'lco_err.fits', overwrite=True)
+        
+        SN_map =  mom0_hdu.data / mom0_uncertainty
+        SN_hdu = fits.PrimaryHDU(SN_map, mom0_hdu.header)
+        SN_hdu.header.pop('BUNIT')
+        SN_hdu.writeto(savepath + 'mom0_SN.fits', overwrite=True)
+        
+        mom1_uncertainty = (N_map * abs(cube.header['CDELT3'] / 1000) / (2 * np.sqrt(3))) * \
+                           (mom0_uncertainty / mom0_hdu.data)  # Eqn 15 doc. Chris
+        mom1_uncertainty_hdu = fits.PrimaryHDU(mom1_uncertainty, mom1_hdu.header)
+               
+        mom2_uncertainty = ((N_map * abs(cube.header['CDELT3'] / 1000)) ** 2 / (8 * np.sqrt(5))) * \
+                           (mom0_uncertainty / mom0_hdu.data) * (mom2_hdu.data) ** -1  # Eqn 30 doc. Chris           
+        mom2_uncertainty_hdu = fits.PrimaryHDU(mom2_uncertainty, mom2_hdu.header)
+        
+        mom1_uncertainty_hdu.writeto(savepath + 'mom1_err.fits', overwrite=True)
+        mom2_uncertainty_hdu.writeto(savepath + 'mom2_err.fits', overwrite=True)
     
-    
-    SN_map = mom0_hdu.data / mom0_uncertainty
-    SN_hdu = fits.PrimaryHDU(SN_map, mom0_hdu.header)
-    SN_hdu.header.pop('BUNIT')
-    
-    mom0_uncertainty_hdu.writeto(savepath + 'mom0_unc.fits', overwrite=True)
-    SN_hdu.writeto(savepath + 'mom0_SN.fits', overwrite=True)
-    mom1_uncertainty_hdu.writeto(savepath + 'mom1_unc.fits', overwrite=True)
-    mom2_uncertainty_hdu.writeto(savepath + 'mom2_unc.fits', overwrite=True)
-    
-    
+
 def calc_peak_t(cube, savepath):
     
     peak_temp = np.nanmax(cube.data, axis=0)
@@ -319,25 +417,35 @@ def perform_moment_creation(path):
     
     #files = glob(path + '**/*subcube.fits')
     files = glob(path + '**/*test.fits')
-    galaxies = list(set([f.split('/')[6].split('_')[0] for f in files]))
-    
-    galaxies = ['KGAS26']
+    galaxies = list(set([f.split('/')[7].split('_')[0] for f in files]))
     
     for galaxy in galaxies:
              
         if not os.path.exists(path + galaxy + '/moment_maps'):
             os.mkdir(path + galaxy + '/moment_maps')
         
-        cubes = glob(path + galaxy + '**/*test.fits')
+        cubes = glob(path + galaxy + '/*test.fits')
         
         for cube in cubes:
-            savepath = path + galaxy + '/moment_maps/' + cube.split('/')[-1].split('.fits')[0] + '_'
+            
+            savepath = path + galaxy + '/moment_maps/' + cube.split('/')[-1].split('.fits')[0] + '_pbcorr_'
     
             cube_fits = fits.open(cube)[0]
     
-            calc_moms(cube_fits, savepath)
-            calc_peak_t(cube_fits, savepath)
-            calc_uncs(cube_fits, path, galaxy, savepath)
+            calc_moms(cube_fits, galaxy, savepath=savepath)
+            calc_moms(cube_fits, galaxy, savepath=savepath, units='K km/s pc^2')
+            calc_moms(cube_fits, galaxy, savepath=savepath, units='Msol pc-2')
+            calc_moms(cube_fits, galaxy, savepath=savepath, units='Msol/pix')
+            calc_peak_t(cube_fits, savepath=savepath)
+            
+            calc_uncs(cube_fits, path, galaxy, savepath=savepath, 
+                      units='K km/s', alpha_co=5.4, R21=0.7)
+            calc_uncs(cube_fits, path, galaxy, savepath, 
+                      units='K km/s pc^2', alpha_co=5.4, R21=0.7)
+            calc_uncs(cube_fits, path, galaxy, savepath, 
+                      units='Msol pc-2', alpha_co=5.4, R21=0.7)
+            calc_uncs(cube_fits, path, galaxy, savepath, 
+                      units='Msol/pix', alpha_co=5.4, R21=0.7)
 
 
 if __name__ == '__main__':

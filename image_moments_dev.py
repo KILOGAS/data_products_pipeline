@@ -19,7 +19,7 @@ def moment_zero(mom0, galaxy, path, savename=None, units='Jy/beam km/s', alpha_c
 
     # show the image in colour
     f = apl.FITSFigure(mom0, figure=fig)
-    f.set_theme('publication')
+    #f.set_theme('publication')
 
     # add the galaxy name in the upper right corner
     f.add_label(0.8, 0.9, galaxy, relative=True, size=30)
@@ -64,16 +64,38 @@ def moment_zero(mom0, galaxy, path, savename=None, units='Jy/beam km/s', alpha_c
     elif np.nanmax(mom0.data) < 1000:
         ticks = np.arange(0, np.nanmax(mom0.data) + 20, 40)
     else:
-        ticks = np.arange(0, np.nanmax(mom0.data) + 100, 200)
+        pass
+        #ticks = np.arange(0, np.nanmax(mom0.data) + 100, 200)
 
-    cbar = fig.colorbar(colors, ticks=ticks)
+    try:
+        cbar = fig.colorbar(colors, ticks=ticks)
+    except:
+        cbar = fig.colorbar(colors)
 
     if peak:
         cbar.set_label('Peak temperature [K]')
     elif units == 'Jy/beam km/s':
         cbar.set_label(r'Integrated intensity [Jy b$^{-1}$ km s$^{-1}$]')
-    elif units == 'M_Sun/pc^2':
-        cbar.set_label(r'Surface density [M$_\odot$ pc$^{-2}$]')
+    elif units == 'K km/s pc^2':
+        if 'err' in savename:
+            cbar.set_label(r'CO luminosity error [K km s$^{-1}$ pc$^{-2}$]')
+        else:
+            cbar.set_label(r'CO luminosity [K km s$^{-1}$ pc$^{-2}$]')
+    elif units == 'K km/s':
+        if 'err' in savename:
+            cbar.set_label(r'CO surface brightness error [K km s$^{-1}$]')
+        else:
+            cbar.set_label(r'CO surface brightness [K km s$^{-1}$]')
+    elif units == 'Msol pc-2':
+        if 'err' in savename:
+            cbar.set_label(r'mol. mass surface density error [dex]')
+        else:
+            cbar.set_label(r'mol. mass surface density [M$_\odot$ pc$^{-2}$]')
+    elif units == 'Msol/pix':
+        if 'err' in savename:
+            cbar.set_label(r'mol. mass error [dex]')
+        else:
+            cbar.set_label(r'mol. mass [log M$_\odot$]')
     else:
         raise AttributeError('Please choose between "K km/s" and "M_Sun/pc^2"')
 
@@ -92,14 +114,8 @@ def moment_zero(mom0, galaxy, path, savename=None, units='Jy/beam km/s', alpha_c
     plt.tight_layout()
 
     if savename:
-        if peak:
-            plt.savefig(path + savename + '.png', bbox_inches='tight')
-            plt.savefig(path + savename + '.pdf', bbox_inches='tight') 
-        elif units == 'Jy/beam km/s':
-            plt.savefig(path + savename + '.png', bbox_inches='tight')
-            plt.savefig(path + savename + '.pdf', bbox_inches='tight')
-        #elif units == 'M_Sun/pc^2':
-        #    plt.savefig(self.savepath + 'mom0_Msolpc-2.pdf', bbox_inches='tight')
+        plt.savefig(path + savename + '.png', bbox_inches='tight')
+        plt.savefig(path + savename + '.pdf', bbox_inches='tight') 
 
 
 def moment_1_2(mom, galaxy, moment, path, savename=None):
@@ -145,7 +161,10 @@ def moment_1_2(mom, galaxy, moment, path, savename=None):
             ticks = []
             
         cbar = fig.colorbar(colors, ticks=ticks)
-        cbar.set_label(r'Observed $\sigma_v$ [km s$^{-1}$]')
+        if 'err' in savename:
+            cbar.set_label(r'Observed $\sigma_v$ error [km s$^{-1}$]')
+        else:
+            cbar.set_label(r'Observed $\sigma_v$ [km s$^{-1}$]')
 
     elif moment == 1:
         #vrange = int(vel_array[0])
@@ -185,7 +204,10 @@ def moment_1_2(mom, galaxy, moment, path, savename=None):
 
         #ticks = np.concatenate((tickarr, [0], abs(tickarr)))
         cbar = fig.colorbar(colors, ticks=ticks)
-        cbar.set_label(r'Velocity [km s$^{-1}$]')
+        if 'err' in savename:
+            cbar.set_label(r'Velocity error [km s$^{-1}$]')
+        else:
+            cbar.set_label(r'Velocity [km s$^{-1}$]')
 
     # show the beam of the observations
     f.add_beam(frame=False, linewidth=5)  # automatically imports BMAJ, BMIN, and BPA
@@ -212,33 +234,41 @@ def perform_moment_imaging(glob_path):
     #glob_path = '/mnt/ExtraSSD/ScienceProjects/KILOGAS/Code_Blake/'
     
     files = glob(glob_path + '**/')
-    galaxies = list(set([f.split('/')[6].split('_')[0] for f in files]))
-    #galaxies = ['KGAS58']
+    galaxies = list(set([f.split('/')[7].split('_')[0] for f in files]))
     
     for galaxy in galaxies:
         
+        print(galaxy)
+        
         path = glob_path + galaxy + '/moment_maps/'
         
-        mom0s = glob(path + '*mom0*.fits')
+        mom0_K_kmss = glob(path + '*lco*.fits')
+        mom0_K_kms_pc2s = glob(path + '*Lco*.fits')
+        mom0_K_kmss = glob(path + '*mmol_pc2*.fits')
+        mom0_K_kms_pc2s = glob(path + '*mmol_pix-1*.fits')
+        
         peakTs = glob(path + '*peak_temp_k*.fits')
         mom1s = glob(path + '*mom1*.fits')
         mom2s = glob(path + '*mom2*.fits')
         
-        #mom0s = ['/mnt/ExtraSSD/ScienceProjects/KILOGAS/IFU_matched_cubes/KGAS58/moment_maps/KGAS58_test_mom0_Jyb-1_kms-1.fits']
-        
-        for mom0 in mom0s:
+        for mom0 in mom0_K_kmss:
             moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
                         savename=mom0.split('/')[-1].split('.fits')[0], 
-                        units='Jy/beam km/s', alpha_co=5.4, peak=False)
+                        units='K km/s', alpha_co=5.4, peak=False)
+        for mom0 in mom0_K_kms_pc2s:
+            moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
+                        savename=mom0.split('/')[-1].split('.fits')[0], 
+                        units='K km/s pc^2', alpha_co=5.4, peak=False)
         for peakT in peakTs:
             moment_zero(fits.open(peakT)[0], galaxy=galaxy, path=path, 
                         savename=peakT.split('/')[-1].split('.fits')[0], 
-                        units='Jy/beam km/s', alpha_co=5.4, peak=True)
+                        peak=True)
         for mom1 in mom1s:
             moment_1_2(fits.open(mom1)[0], savename=mom1.split('/')[-1].split('.fits')[0], galaxy=galaxy, moment=1, path=glob_path)
         for mom2 in mom2s:
             moment_1_2(fits.open(mom2)[0], savename=mom2.split('/')[-1].split('.fits')[0], galaxy=galaxy, moment=2, path=glob_path)
 
+        break
 
 if __name__ == '__main__':
     path = '/mnt/ExtraSSD/ScienceProjects/KILOGAS/Code_Blake/'
