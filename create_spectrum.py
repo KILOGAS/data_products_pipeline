@@ -11,7 +11,7 @@ def gauss(x, a, x0, sigma):
     return a * np.exp(-(x - x0) ** 2 / (2 * sigma ** 2))
 
 
-def spectrum(cube, galaxy, start, stop, savepath, extra_chans=10, non_det=False):
+def spectrum(cube, galaxy, start, stop, path, savepath, extra_chans=10, non_det=False):
 
     _, _, vel_array_full, _ = create_vel_array(cube)
     
@@ -43,9 +43,16 @@ def spectrum(cube, galaxy, start, stop, savepath, extra_chans=10, non_det=False)
         #gaussian = gauss(vel_array_full, 3*rms, x0, sigma)
         
     else:
+        clip_mask = fits.open(path + galaxy + '/clip_mask.fits')[0]
+        mask = np.sum(clip_mask.data, axis=0)
+        mask = mask.astype(float)
+        
+        mask[mask==0] = np.nan
+        mask3d = np.tile(mask, (cube.shape[0], 1, 1))
+        masked_data = mask3d * cube.data
+        
         spectrum = np.nansum(cube.data, axis=(1, 2))
         
-    '''
     if start - extra_chans < 0:
         spectrum_velocities = vel_array_full[0:stop + extra_chans]
         spectrum = spectrum[0:stop + extra_chans]
@@ -57,35 +64,31 @@ def spectrum(cube, galaxy, start, stop, savepath, extra_chans=10, non_det=False)
         spectrum_velocities = vel_array_full[start - extra_chans:stop + extra_chans]
         spectrum = spectrum[start - extra_chans:stop + extra_chans]
         #spectrum_vel_offset = spectrum_velocities - sysvel + self.galaxy.sysvel_offset
-    '''
 
     #rest_freq = 230538000000
     #spectrum_frequencies = rest_frequency * (1 - spectrum_velocities / 299792.458) / 1e9
 
-    spectrum_velocities = vel_array_full
-
     csv_header = 'Spectrum (K), Velocity (km/s)'
 
-    np.savetxt(savepath + '_pbcorr_spectrum.csv',
+    np.savetxt(savepath + '_spectrum.csv',
                np.column_stack((spectrum, spectrum_velocities)),
                delimiter=',', header=csv_header)
 
     return spectrum, spectrum_velocities
 
-'''
-def spectrum(x_axis='velocity', useclipped=False):
+
+def plot_spectrum(spectrum, velocity, extra_chans=0, x_axis='velocity', 
+             useclipped=False, savepath=None):
 
 
     fig, ax = plt.subplots(figsize=(7, 7))
-
-    extra_chans = 5
 
     if x_axis == 'velocity':
         ax.plot(velocity, spectrum, color='k', drawstyle='steps')
         x = np.arange(np.amin(velocity) - 100, np.amax(velocity) + 100, 1)
         ax.set_xlim(velocity[len(velocity) - 1] + extra_chans, velocity[0] - extra_chans)
         ax.set_xlabel(r'Velocity [km s$^{-1}$]')
-
+    '''
     elif x_axis == 'vel_offset':
         ax.plot(v_off, spectrum, color='k', drawstyle='steps')
         x = np.arange(np.amin(v_off) - 100, np.amax(v_off) + 100, 1)
@@ -99,30 +102,25 @@ def spectrum(x_axis='velocity', useclipped=False):
         ax.set_xlabel(r'Frequency [GHz]')
     else:
         raise AttributeError('Please choose between "velocity" , "vel_offset", and "frequency" for "x-axis"')
+    '''
 
     # Line through zero
-    zeroline = np.zeros(len(x))
-    plt.plot(x, zeroline, linestyle=':', c='r', linewidth=1)
+    #zeroline = np.zeros(len(x))
+    #plt.plot(x, zeroline, linestyle=':', c='r', linewidth=1)
 
-    if self.sample == 'viva' or self.sample == 'things' or self.sample == None:
-        ax.set_ylabel('Brightness temperature [Jy b${-1}$]')
-    else:
-        ax.set_ylabel('Brightness temperature [K]')
+    ax.set_ylabel('Brightness temperature [K]')
 
     plt.tight_layout()
 
-    if self.tosave:
-        if x_axis == 'frequency':
-            plt.savefig(self.savepath + 'spectrum_freq.pdf', bbox_inches='tight')
-        if x_axis == 'velocity':
-            plt.savefig(self.savepath + 'spectrum_vel.pdf', bbox_inches='tight')
-        if x_axis == 'vel_offset':
-            plt.savefig(self.savepath + 'spectrum_vel_offset.pdf', bbox_inches='tight')
-'''
+    if savepath:
+        plt.savefig(savepath + '_spectrum.png', bbox_inches='tight')
+        plt.savefig(savepath + '_spectrum.pdf', bbox_inches='tight')
 
-def get_all_spectra(path):
+
+def get_all_spectra(path, targets):
     
-    files = glob(path + '**/*test.fits')
+    files = glob(path + '**/*co2-1*image.pbcor.fits')
+    
     galaxies = list(set([f.split('/')[7].split('_')[0] for f in files]))
     
     clipping_table = fits.open('/mnt/ExtraSSD/ScienceProjects/KILOGAS/KGAS_chans2do.fits')[1]
@@ -138,7 +136,10 @@ def get_all_spectra(path):
     
     for galaxy in galaxies:
         
-        non_det = detected[detected_id == int(galaxy.split('KGAS')[1])]
+        if not galaxy in targets:
+            continue
+        
+        non_det = ~detected[detected_id == int(galaxy.split('KGAS')[1])]
         
         start = clipping_chans[galaxy][0]
         stop = clipping_chans[galaxy][1]
@@ -146,15 +147,17 @@ def get_all_spectra(path):
         if not os.path.exists(path + galaxy + '/moment_maps'):
             os.mkdir(path + galaxy + '/moment_maps')
         
-        cubes = glob(path + galaxy + '/*test.fits')
+        cubes = glob(path + galaxy + '/*co2-1*image.pbcor.fits')
         
         for cube in cubes:
             
-            savepath = path + galaxy + '/moment_maps/' + cube.split('/')[-1].split('.fits')[0] + '_pbcorr_'
+            savepath = path + galaxy + '/moment_maps/' + cube.split('/')[-1].split('.fits')[0]
     
             cube_fits = fits.open(cube)[0]
     
-            spec, vel = spectrum(cube_fits, galaxy, start, stop, savepath, extra_chans=0, non_det=non_det)
+            spec, vel = spectrum(cube_fits, galaxy, start, stop, path, savepath, extra_chans=10, non_det=non_det)
+            
+            plot_spectrum(spec, vel, extra_chans=0, savepath=savepath)
         
 
 if __name__ == '__main__':

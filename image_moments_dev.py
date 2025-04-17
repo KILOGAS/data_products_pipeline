@@ -229,7 +229,7 @@ def moment_1_2(mom, galaxy, moment, path, savename=None):
         plt.savefig(path + galaxy + '/' + 'moment_maps/' + savename + '.pdf', bbox_inches='tight')
 
 
-def perform_moment_imaging(glob_path):
+def perform_moment_imaging(glob_path, targets):
     #path = '/mnt/ExtraSSD/ScienceProjects/KILOGAS/IFU_matched_cubes/moment_maps/'
     #glob_path = '/mnt/ExtraSSD/ScienceProjects/KILOGAS/Code_Blake/'
     
@@ -238,14 +238,15 @@ def perform_moment_imaging(glob_path):
     
     for galaxy in galaxies:
         
-        print(galaxy)
+        if not galaxy in targets:
+            continue
         
         path = glob_path + galaxy + '/moment_maps/'
         
         mom0_K_kmss = glob(path + '*lco*.fits')
         mom0_K_kms_pc2s = glob(path + '*Lco*.fits')
-        mom0_K_kmss = glob(path + '*mmol_pc2*.fits')
-        mom0_K_kms_pc2s = glob(path + '*mmol_pix-1*.fits')
+        mom0_Msol_pc2 = glob(path + '*mmol_pc2*.fits')
+        mom0_Msol_pix = glob(path + '*mmol_pix-1*.fits')
         
         peakTs = glob(path + '*peak_temp_k*.fits')
         mom1s = glob(path + '*mom1*.fits')
@@ -259,6 +260,14 @@ def perform_moment_imaging(glob_path):
             moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
                         savename=mom0.split('/')[-1].split('.fits')[0], 
                         units='K km/s pc^2', alpha_co=5.4, peak=False)
+        for mom0 in mom0_Msol_pc2:
+            moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
+                        savename=mom0.split('/')[-1].split('.fits')[0], 
+                        units='Msol pc-2', alpha_co=5.4, peak=False)
+        for mom0 in mom0_Msol_pix:
+            moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
+                        savename=mom0.split('/')[-1].split('.fits')[0], 
+                        units='Msol/pix', alpha_co=5.4, peak=False)
         for peakT in peakTs:
             moment_zero(fits.open(peakT)[0], galaxy=galaxy, path=path, 
                         savename=peakT.split('/')[-1].split('.fits')[0], 
@@ -267,8 +276,7 @@ def perform_moment_imaging(glob_path):
             moment_1_2(fits.open(mom1)[0], savename=mom1.split('/')[-1].split('.fits')[0], galaxy=galaxy, moment=1, path=glob_path)
         for mom2 in mom2s:
             moment_1_2(fits.open(mom2)[0], savename=mom2.split('/')[-1].split('.fits')[0], galaxy=galaxy, moment=2, path=glob_path)
-
-        break
+            
 
 if __name__ == '__main__':
     path = '/mnt/ExtraSSD/ScienceProjects/KILOGAS/Code_Blake/'

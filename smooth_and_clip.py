@@ -27,12 +27,17 @@ channels around the CO line.
 def perform_smooth_and_clip(path, ifu_match=False):
     from KILOGAS_functions import KILOGAS_clip
     import os
+    from astropy.io import fits
 
-    targets = ['KGAS15', 'KGAS16', 'KGAS58']
-    targets = ['KGAS26', 'KGAS28', 'KGAS55', 'KGAS58']
+    targets = ['KGAS7', 'KGAS74', 'KGAS86', 'KGAS215', 'KGAS291', 'KGAS300', 'KGAS435']
 
-    clipping_chans = {'KGAS15': [168,188], 'KGAS16': [60,90], 'KGAS58': [95,150], 
-                      'KGAS26': [15,50], 'KGAS28': [155,205], 'KGAS55': [40,75]}
+    clipping_table = fits.open('/mnt/ExtraSSD/ScienceProjects/KILOGAS/KGAS_chans2do.fits')[1]
+    KGAS_ID = clipping_table.data['KGAS_ID']
+    minchan = clipping_table.data['minchan']
+    maxchan = clipping_table.data['maxchan']
+    
+    clipping_chans = {'KGAS' + id.astype(str): [min, max] for id, min, max in zip(KGAS_ID, minchan, maxchan)}
+    
     save_files = True
 
     if ifu_match:
@@ -69,17 +74,29 @@ def perform_smooth_and_clip(path, ifu_match=False):
     #targets = ["list of target names"]
     #clipping_chans = TBD on format, but first/last channels of CO line
 
-
     for galaxy in targets:
         print("Current target:", galaxy)
             
         if ifu_match:
-            path_pbcorr = path+galaxy+"_co2-1_7m+12m.image.pbcor.smoothed.ifumatched.fits"
-            path_uncorr = path+galaxy+"_co2-1_7m+12m.image.smoothed.ifumatched.fits"
-            savepath = path+galaxy+"/"+galaxy+'_ifumatch_test.fits'
+            try:
+                path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.image.pbcor.ifumatched.fits"
+                path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.image.ifumatched.fits"
+                fits.open(path_pbcorr)
+            except:
+                path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.ifumatched.fits"
+                path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.ifumatched.fits"
+                
+            savepath = path+galaxy+"/"+galaxy+"_ifumatch_test.fits"
+            
         else:
-            path_pbcorr = path+galaxy+"_co2-1_7m+12m.image.pbcor.fits"
-            path_uncorr = path+galaxy+"_co2-1_7m+12m.image.fits"
+            try:
+                path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.image.pbcor.fits"
+                path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.image.fits"
+                fits.open(path_pbcorr)
+            except:
+                path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.fits"
+                path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.fits"
+                
             savepath = path+galaxy+"/"+galaxy+'_test.fits'
         
         start = clipping_chans[galaxy][0]
@@ -87,7 +104,8 @@ def perform_smooth_and_clip(path, ifu_match=False):
         
         #print(sun_method_params)
         
-        clip_emiscube, clipped_noisecube = KILOGAS_clip(galaxy, path_pbcorr, path_uncorr, start, stop, sun_method_params).do_clip()
+        clip_emiscube, clipped_noisecube = KILOGAS_clip(galaxy, path, path_pbcorr, 
+                path_uncorr, start, stop, sun_method_params).do_clip()
 
         if save_files:
             if not os.path.exists(path + galaxy):

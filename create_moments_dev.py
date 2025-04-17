@@ -46,7 +46,7 @@ def new_header(header):
     return header
 
 
-def create_vel_array(cube, savepath):
+def create_vel_array(cube, savepath=None):
     """
     Creates the velocity array corresponding to the spectral axis
     of the cube in km/s.
@@ -340,7 +340,7 @@ def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=5.4, R21=0.
         mom0_hdu.header['BUNIT'] = 'dex'
         mom0_hdu.header.comments['BUNIT'] = ''
    
-        mom0_uncertainty_hdu.writeto(savepath + 'mmol_pc2_err.fits', overwrite=True)
+        mom0_uncertainty_hdu.writeto(savepath + 'mmol_pc-2_err.fits', overwrite=True)
         
     elif units == 'Msol/pix':
         mom0_hdu, _, _ = calc_moms(cube, galaxy, savepath=None, units='Msol/pix')
@@ -359,7 +359,7 @@ def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=5.4, R21=0.
         mom0_hdu.header['BUNIT'] = 'dex'
         mom0_hdu.header.comments['BUNIT'] = ''
         
-        mom0_uncertainty_hdu.writeto(savepath + 'mmol_pix_err.fits', overwrite=True)
+        mom0_uncertainty_hdu.writeto(savepath + 'mmol_pix-1_err.fits', overwrite=True)
     
     elif units == 'K kms pc^2':
         mom0_hdu, _, _, = calc_moms(cube, galaxy, units='K km/s pc^2')
@@ -372,7 +372,7 @@ def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=5.4, R21=0.
         mom0_hdu.header['BUNIT'] = 'K km s^-1 pc^2'
         mom0_hdu.header.comments['BUNIT'] = ''
         
-        mom0_uncertainty_hdu.writeto(savepath + 'Lco_err.fits', overwrite=True)
+        mom0_uncertainty_hdu.writeto(savepath + 'Lco_K_kms-1_pc2_err.fits', overwrite=True)
         
     else:
         mom0_hdu, mom1_hdu, mom2_hdu = calc_moms(cube, galaxy)
@@ -383,7 +383,7 @@ def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=5.4, R21=0.
         mom0_hdu.header['BUNIT'] = 'K km s^-1'
         mom0_hdu.header.comments['BUNIT'] = ''
         
-        mom0_uncertainty_hdu.writeto(savepath + 'lco_err.fits', overwrite=True)
+        mom0_uncertainty_hdu.writeto(savepath + 'lco_K_kms-1_err.fits', overwrite=True)
         
         SN_map =  mom0_hdu.data / mom0_uncertainty
         SN_hdu = fits.PrimaryHDU(SN_map, mom0_hdu.header)
@@ -413,13 +413,16 @@ def calc_peak_t(cube, savepath):
     peak_temp_hdu.writeto(savepath + 'peak_temp_k.fits', overwrite=True)
 
 
-def perform_moment_creation(path):
+def perform_moment_creation(path, targets):
     
     #files = glob(path + '**/*subcube.fits')
     files = glob(path + '**/*test.fits')
     galaxies = list(set([f.split('/')[7].split('_')[0] for f in files]))
     
     for galaxy in galaxies:
+        
+        if not galaxy in targets:
+            continue
              
         if not os.path.exists(path + galaxy + '/moment_maps'):
             os.mkdir(path + galaxy + '/moment_maps')
