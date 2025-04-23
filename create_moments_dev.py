@@ -162,12 +162,15 @@ def calc_moms(cube, galaxy, savepath=None, units='K km/s', alpha_co=4.35, R21=0.
         mom0 *= alpha_co
         mom0 /= R21
         mom0 *= (1 + z)
-        mom0 *= pc_to_pix
+        mom0 *= pc_to_pix 
         mom0 = np.log10(mom0)
     
     elif units == 'K km/s pc^2':
         mom0 *= cosmo.luminosity_distance(z).value ** 2
-        mom0 /= (1 + z)        
+        mom0 /= (1 + z)
+        
+    mom0[np.isinf(mom0)] = np.nan
+    mom0[mom0 == 0] = np.nan    
         
     mom1 = np.nansum(cube.data * vel_narray, axis=0) / np.nansum(cube.data, axis=0)
     mom2 = np.sqrt(np.nansum(abs(cube.data) * (vel_narray - mom1) ** 2, axis=0) / np.nansum(abs(cube.data), axis=0))
@@ -211,7 +214,7 @@ def calc_moms(cube, galaxy, savepath=None, units='K km/s', alpha_co=4.35, R21=0.
         mom0_hdu.header['BUNIT'] = 'log Msol'
         mom0_hdu.header.comments['BUNIT'] = ''
     else:
-        mom0_hdu.header['BTYPE'] = 'lco'
+        mom0_hdu.header['BTYPE'] = 'Ico'
         mom0_hdu.header.comments['BTYPE'] = 'CO surface brightness'
         mom0_hdu.header['BUNIT'] = units
         mom0_hdu.header.comments['BUNIT'] = ''
@@ -230,7 +233,7 @@ def calc_moms(cube, galaxy, savepath=None, units='K km/s', alpha_co=4.35, R21=0.
 
     if savepath:
         if units == 'K km/s':
-            mom0_hdu.writeto(savepath + 'lco_K_kms-1.fits', overwrite=True)
+            mom0_hdu.writeto(savepath + 'Ico_K_kms-1.fits', overwrite=True)
         elif units == 'K km/s pc^2':
             mom0_hdu.writeto(savepath + 'Lco_K_kms-1_pc2.fits', overwrite=True)
         elif units == 'Msol pc-2':
@@ -336,12 +339,12 @@ def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=5.4, R21=0.
         mom0_hdu, mom1_hdu, mom2_hdu = calc_moms(cube, galaxy)
         
         mom0_uncertainty_hdu = fits.PrimaryHDU(mom0_uncertainty, mom0_hdu.header)
-        mom0_uncertainty_hdu.header['BTYPE'] = 'lco error'
+        mom0_uncertainty_hdu.header['BTYPE'] = 'Ico error'
         mom0_uncertainty_hdu.header.comments['BTYPE'] = 'Error in CO SB'
         mom0_hdu.header['BUNIT'] = 'K km s^-1'
         mom0_hdu.header.comments['BUNIT'] = ''
         
-        mom0_uncertainty_hdu.writeto(savepath + 'lco_K_kms-1_err.fits', overwrite=True)
+        mom0_uncertainty_hdu.writeto(savepath + 'Ico_K_kms-1_err.fits', overwrite=True)
         
         SN_map =  mom0_hdu.data / mom0_uncertainty
         SN_hdu = fits.PrimaryHDU(SN_map, mom0_hdu.header)

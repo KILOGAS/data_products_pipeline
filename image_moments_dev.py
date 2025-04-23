@@ -78,9 +78,9 @@ def moment_zero(mom0, galaxy, path, savename=None, units='Jy/beam km/s', alpha_c
         cbar.set_label(r'Integrated intensity [Jy b$^{-1}$ km s$^{-1}$]')
     elif units == 'K km/s pc^2':
         if 'err' in savename:
-            cbar.set_label(r'CO luminosity error [K km s$^{-1}$ pc$^{-2}$]')
+            cbar.set_label(r'CO luminosity error [K km s$^{-1}$ pc$^2$]')
         else:
-            cbar.set_label(r'CO luminosity [K km s$^{-1}$ pc$^{-2}$]')
+            cbar.set_label(r'CO luminosity [K km s$^{-1}$ pc$^2$]')
     elif units == 'K km/s':
         if 'err' in savename:
             cbar.set_label(r'CO surface brightness error [K km s$^{-1}$]')
@@ -176,9 +176,6 @@ def moment_1_2(mom, galaxy, moment, path, savename=None):
         #colors = plt.contourf([[0, 0], [0, 0]], levels=np.linspace(-vrange, vrange,
         #                                                           len(vel_array)), cmap='sauron')
         
-        #vmin = 13450
-        #vmax = 13850
-        
         vmin = np.nanmin(mom.data)
         vmax = np.nanmax(mom.data)
         
@@ -243,7 +240,7 @@ def perform_moment_imaging(glob_path, targets):
         
         path = glob_path + galaxy + '/moment_maps/'
         
-        mom0_K_kmss = glob(path + '*lco*.fits')
+        mom0_K_kmss = glob(path + '*Ico*.fits')
         mom0_K_kms_pc2s = glob(path + '*Lco*.fits')
         mom0_Msol_pc2 = glob(path + '*mmol_pc2*.fits')
         mom0_Msol_pix = glob(path + '*mmol_pix-1*.fits')
