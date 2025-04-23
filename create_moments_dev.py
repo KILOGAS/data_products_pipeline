@@ -101,49 +101,7 @@ def create_vel_array(cube, savepath=None):
     return vel_array, vel_narray, vel_array_full, v_step
 
 
-def add_clipping_keywords(self, header):
-    """
-    Add information to the header specifying details about the clipping.
-
-    Parameters
-    ----------
-    header : FITS header
-        Header of the cube that was clipped.
-
-    Returns
-    -------
-    header : FITS header
-        Header of the cube with clipping-related keywords added.
-
-    """
-    if self.sun:
-        try:
-            header.add_comment('Cube was clipped using the Sun+18 masking method', before='BUNIT')
-        except:
-            header.add_comment('Cube was clipped using the Sun+18 masking method', after='NAXIS2')
-        header['CLIPL_L'] = self.galaxy.cliplevel_low
-        header.comments['CLIPL_L'] = 'S/N threshold specified for the "wing mask"'
-        header['CLIPL_H'] = self.galaxy.cliplevel_high
-        header.comments['CLIPL_H'] = 'S/N threshold specified for the "core mask"'
-        header['NCHAN_L'] = self.galaxy.nchan_low
-        header.comments['NCHAN_L'] = '# of consecutive channels specified for the "core mask"'
-        header['NCHAN_H'] = self.galaxy.nchan_high
-        header.comments['NCHAN_H'] = '# of consecutive channels specified for the "wing mask"'
-    else:
-        try:
-            header.add_comment('Cube was clipped using the Dame11 masking method', before='BUNIT')
-        except:
-            header.add_comment('Cube was clipped using the Dame11 masking method', after='NAXIS2')
-        header['CLIPL'] = self.galaxy.cliplevel
-        header.comments['CLIPL'] = 'SNR used for clip (Dame11)'
-
-    header['CLIP_RMS'] = self.uncertainty_maps(calc_rms=True)
-    header.comments['CLIP_RMS'] = 'rms noise level used in masking (K km/s)'
-
-    return header
-
-
-def calc_moms(cube, galaxy, savepath=None, units='K km/s', alpha_co=5.4, R21=0.7):
+def calc_moms(cube, galaxy, savepath=None, units='K km/s', alpha_co=4.35, R21=0.7):
     """
     Clip the spectral cube according to the desired method (either the 
     method Pythonified by Jiayi Sun or the more basic smooth + clip 
@@ -194,7 +152,7 @@ def calc_moms(cube, galaxy, savepath=None, units='K km/s', alpha_co=5.4, R21=0.7
     
     if units == 'Msol pc-2':
         mom0 *= alpha_co
-        mom0 *= R21
+        mom0 /= R21
         mom0 *= (1 + z)
         mom0 = np.log10(mom0)
         
@@ -202,13 +160,13 @@ def calc_moms(cube, galaxy, savepath=None, units='K km/s', alpha_co=5.4, R21=0.7
         pc_to_pix = (cube.header['CDELT2'] * cosmo.kpc_proper_per_arcmin(z).value * 60 * 1000) ** 2
         
         mom0 *= alpha_co
-        mom0 *= R21
+        mom0 /= R21
         mom0 *= (1 + z)
         mom0 *= pc_to_pix
         mom0 = np.log10(mom0)
     
-    elif units == 'K kms pc^2':
-        mom0 *= cosmo.luminosity_distance(z) ** 2
+    elif units == 'K km/s pc^2':
+        mom0 *= cosmo.luminosity_distance(z).value ** 2
         mom0 /= (1 + z)        
         
     mom1 = np.nansum(cube.data * vel_narray, axis=0) / np.nansum(cube.data, axis=0)
@@ -276,9 +234,9 @@ def calc_moms(cube, galaxy, savepath=None, units='K km/s', alpha_co=5.4, R21=0.7
         elif units == 'K km/s pc^2':
             mom0_hdu.writeto(savepath + 'Lco_K_kms-1_pc2.fits', overwrite=True)
         elif units == 'Msol pc-2':
-            mom0_hdu.writeto(savepath + 'mmol_pc-2.fits', overwrite=True)
+            mom0_hdu.writeto(savepath + 'log_mmol_pc-2.fits', overwrite=True)
         elif units == 'Msol/pix':
-            mom0_hdu.writeto(savepath + 'mmol_pix-1.fits', overwrite=True)
+            mom0_hdu.writeto(savepath + 'log_mmol_pix-1.fits', overwrite=True)
         mom1_hdu.writeto(savepath + 'mom1.fits', overwrite=True)
         mom2_hdu.writeto(savepath + 'mom2.fits', overwrite=True)
         
@@ -330,7 +288,7 @@ def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=5.4, R21=0.
     if units == 'Msol pc-2':
         mom0_hdu, _, _ = calc_moms(cube, galaxy, savepath=None, units='Msol pc-2')
         mom0_uncertainty *= alpha_co
-        mom0_uncertainty *= R21
+        mom0_uncertainty /= R21
         mom0_uncertainty *= (1 + z)
         mom0_uncertainty *= 0.434 * (mom0_uncertainty / 10 ** mom0_hdu.data)
         
@@ -348,7 +306,7 @@ def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=5.4, R21=0.
         pc_to_pix = (cube.header['CDELT2'] * cosmo.kpc_proper_per_arcmin(z).value * 60 * 1000) ** 2
         
         mom0_uncertainty *= alpha_co
-        mom0_uncertainty *= R21
+        mom0_uncertainty /= R21
         mom0_uncertainty *= (1 + z)
         mom0_uncertainty *= pc_to_pix
         mom0_uncertainty  *= 0.434 * (mom0_uncertainty / 10 ** mom0_hdu.data)
@@ -361,9 +319,9 @@ def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=5.4, R21=0.
         
         mom0_uncertainty_hdu.writeto(savepath + 'mmol_pix-1_err.fits', overwrite=True)
     
-    elif units == 'K kms pc^2':
+    elif units == 'K km/s pc^2':
         mom0_hdu, _, _, = calc_moms(cube, galaxy, units='K km/s pc^2')
-        mom0_uncertainty *= cosmo.luminosity_distance(z) ** 2
+        mom0_uncertainty *= cosmo.luminosity_distance(z).value ** 2
         mom0_uncertainty /= (1 + z)
         
         mom0_uncertainty_hdu = fits.PrimaryHDU(mom0_uncertainty, mom0_hdu.header)
@@ -415,8 +373,7 @@ def calc_peak_t(cube, savepath):
 
 def perform_moment_creation(path, targets):
     
-    #files = glob(path + '**/*subcube.fits')
-    files = glob(path + '**/*test.fits')
+    files = glob(path + '**/*subcube.fits')
     galaxies = list(set([f.split('/')[7].split('_')[0] for f in files]))
     
     for galaxy in galaxies:
@@ -427,7 +384,7 @@ def perform_moment_creation(path, targets):
         if not os.path.exists(path + galaxy + '/moment_maps'):
             os.mkdir(path + galaxy + '/moment_maps')
         
-        cubes = glob(path + galaxy + '/*test.fits')
+        cubes = glob(path + galaxy + '/*subcube.fits')
         
         for cube in cubes:
             
@@ -435,7 +392,7 @@ def perform_moment_creation(path, targets):
     
             cube_fits = fits.open(cube)[0]
     
-            calc_moms(cube_fits, galaxy, savepath=savepath)
+            calc_moms(cube_fits, galaxy, savepath=savepath, units='K km/s')
             calc_moms(cube_fits, galaxy, savepath=savepath, units='K km/s pc^2')
             calc_moms(cube_fits, galaxy, savepath=savepath, units='Msol pc-2')
             calc_moms(cube_fits, galaxy, savepath=savepath, units='Msol/pix')
