@@ -143,7 +143,7 @@ def moment_1_2(mom, galaxy, moment, path, savename=None):
     #add a colourbar
     if moment == 2:
         #vrange2 = 5 * np.nanmedian(mom.data)
-        vrange2 = np.nanmax(mom.data)
+        vrange2 = np.nanmax(mom.data[np.isfinite(mom.data)])
 
         f.show_contour(mom, cmap='sauron', levels=np.linspace(0, vrange2, len(vel_array)), vmin=0,
                          vmax=vrange2, extend='both', filled=True, overlap=True)

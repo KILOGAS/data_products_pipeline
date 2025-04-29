@@ -149,6 +149,7 @@ def calc_moms(cube, galaxy, savepath=None, units='K km/s', alpha_co=4.35, R21=0.
     z = glob_tab.data['Z'][glob_tab.data['KGAS_ID'] == int(galaxy.split('KGAS')[1])][0]
     
     cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
+    pc_to_pix = (cube.header['CDELT2'] * cosmo.kpc_proper_per_arcmin(z).value * 60 * 1000) ** 2
     
     if units == 'Msol pc-2':
         mom0 *= alpha_co
@@ -157,8 +158,6 @@ def calc_moms(cube, galaxy, savepath=None, units='K km/s', alpha_co=4.35, R21=0.
         mom0 = np.log10(mom0)
         
     elif units == 'Msol/pix':
-        pc_to_pix = (cube.header['CDELT2'] * cosmo.kpc_proper_per_arcmin(z).value * 60 * 1000) ** 2
-        
         mom0 *= alpha_co
         mom0 /= R21
         mom0 *= (1 + z)
@@ -166,8 +165,8 @@ def calc_moms(cube, galaxy, savepath=None, units='K km/s', alpha_co=4.35, R21=0.
         mom0 = np.log10(mom0)
     
     elif units == 'K km/s pc^2':
-        mom0 *= cosmo.luminosity_distance(z).value ** 2
-        mom0 /= (1 + z)
+        mom0 *= pc_to_pix
+        mom0 *= (1 + z)
         
     mom0[np.isinf(mom0)] = np.nan
     mom0[mom0 == 0] = np.nan    
@@ -268,11 +267,24 @@ def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=5.4, R21=0.
     # values only where the clipped data cube has values.
     try:
         pb_file = glob(path + '/' + galaxy + '/' + galaxy + '*.pb.fits')[0]
+        pb_cube = fits.open(pb_file)[0]
     except:
-        print('PB file does not exist, uncertainty maps will not be created.')
-        return
+        try:
+            path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.image.pbcor.ifumatched.fits"
+            path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.image.ifumatched.fits"
+            cube_pb_corr = fits.open(path_pbcorr)[0]
+        except:
+            path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.pbcor.ifumatched.fits"
+            path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.ifumatched.fits"
+            cube_pb_corr = fits.open(path_pbcorr)[0]
+            
+        cube_uncorr = fits.open(path_uncorr)[0]
+        pb_cube = cube_pb_corr.copy()
+        pb_cube.data = cube_uncorr.data / cube_pb_corr.data
+        
+        plt.figure()
+        plt.imshow(pb_cube.data[0,:,:])
     
-    pb_cube = fits.open(pb_file)[0]
     pb_cube.data[cube_bool.data != cube_bool.data] = np.nan
     noise_cube = cube.header['CLIP_RMS'] / pb_cube.data
     
@@ -285,6 +297,7 @@ def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=5.4, R21=0.
     z = glob_tab.data['Z'][glob_tab.data['KGAS_ID'] == int(galaxy.split('KGAS')[1])][0]
     
     cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
+    pc_to_pix = (cube.header['CDELT2'] * cosmo.kpc_proper_per_arcmin(z).value * 60 * 1000) ** 2
     
     mom0_uncertainty = noise_map * np.sqrt(N_map) * abs(cube.header['CDELT3'] / 1000)
 
@@ -306,8 +319,6 @@ def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=5.4, R21=0.
     elif units == 'Msol/pix':
         mom0_hdu, _, _ = calc_moms(cube, galaxy, savepath=None, units='Msol/pix')
         
-        pc_to_pix = (cube.header['CDELT2'] * cosmo.kpc_proper_per_arcmin(z).value * 60 * 1000) ** 2
-        
         mom0_uncertainty *= alpha_co
         mom0_uncertainty /= R21
         mom0_uncertainty *= (1 + z)
@@ -324,8 +335,9 @@ def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=5.4, R21=0.
     
     elif units == 'K km/s pc^2':
         mom0_hdu, _, _, = calc_moms(cube, galaxy, units='K km/s pc^2')
-        mom0_uncertainty *= cosmo.luminosity_distance(z).value ** 2
-        mom0_uncertainty /= (1 + z)
+        
+        mom0_uncertainty *= pc_to_pix
+        mom0_uncertainty *= (1 + z)
         
         mom0_uncertainty_hdu = fits.PrimaryHDU(mom0_uncertainty, mom0_hdu.header)
         mom0_uncertainty_hdu.header['BTYPE'] = 'Lco error'
