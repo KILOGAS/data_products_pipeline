@@ -144,6 +144,8 @@ def calc_moms(cube, galaxy, savepath=None, units='K km/s', alpha_co=4.35, R21=0.
 
     mom0 = np.nansum((cube.data * dv), axis=0)
     
+    mom0[mom0 < 0] = np.nan
+    
     # Set redshift parameters needed for physical unit calculations
     glob_tab = fits.open('/mnt/ExtraSSD/ScienceProjects/KILOGAS/KILOGAS_global_catalog_FWHM.fits')[1]        
     z = glob_tab.data['Z'][glob_tab.data['KGAS_ID'] == int(galaxy.split('KGAS')[1])][0]
@@ -161,7 +163,7 @@ def calc_moms(cube, galaxy, savepath=None, units='K km/s', alpha_co=4.35, R21=0.
         mom0 *= alpha_co
         mom0 /= R21
         mom0 *= (1 + z)
-        mom0 *= pc_to_pix 
+        mom0 *= pc_to_pix
         mom0 = np.log10(mom0)
     
     elif units == 'K km/s pc^2':
@@ -236,9 +238,9 @@ def calc_moms(cube, galaxy, savepath=None, units='K km/s', alpha_co=4.35, R21=0.
         elif units == 'K km/s pc^2':
             mom0_hdu.writeto(savepath + 'Lco_K_kms-1_pc2.fits', overwrite=True)
         elif units == 'Msol pc-2':
-            mom0_hdu.writeto(savepath + 'log_mmol_pc-2.fits', overwrite=True)
+            mom0_hdu.writeto(savepath + 'mmol_pc-2.fits', overwrite=True)
         elif units == 'Msol/pix':
-            mom0_hdu.writeto(savepath + 'log_mmol_pix-1.fits', overwrite=True)
+            mom0_hdu.writeto(savepath + 'mmol_pix-1.fits', overwrite=True)
         mom1_hdu.writeto(savepath + 'mom1.fits', overwrite=True)
         mom2_hdu.writeto(savepath + 'mom2.fits', overwrite=True)
         
@@ -403,7 +405,7 @@ def perform_moment_creation(path, targets):
         
         for cube in cubes:
             
-            savepath = path + galaxy + '/moment_maps/' + cube.split('/')[-1].split('.fits')[0] + '_pbcorr_'
+            savepath = path + galaxy + '/moment_maps/' + cube.split('/')[-1].split('.fits')[0].split('expanded')[0]
     
             cube_fits = fits.open(cube)[0]
     
