@@ -157,14 +157,12 @@ def calc_moms(cube, galaxy, savepath=None, units='K km/s', alpha_co=4.35, R21=0.
         mom0 *= alpha_co
         mom0 /= R21
         mom0 *= (1 + z)
-        mom0 = np.log10(mom0)
         
     elif units == 'Msol/pix':
         mom0 *= alpha_co
         mom0 /= R21
         mom0 *= (1 + z)
         mom0 *= pc_to_pix
-        mom0 = np.log10(mom0)
     
     elif units == 'K km/s pc^2':
         mom0 *= pc_to_pix
@@ -207,12 +205,12 @@ def calc_moms(cube, galaxy, savepath=None, units='K km/s', alpha_co=4.35, R21=0.
     elif units == 'Msol pc-2':
         mom0_hdu.header['BTYPE'] = 'mmol pc^-2'
         mom0_hdu.header.comments['BTYPE'] = 'Molecular gas mass surface density'
-        mom0_hdu.header['BUNIT'] = 'log Msol pc^-2'
+        mom0_hdu.header['BUNIT'] = 'Msol pc^-2'
         mom0_hdu.header.comments['BUNIT'] = ''
     elif units == 'Msol/pix':
         mom0_hdu.header['BTYPE'] = 'mmol_pix'
         mom0_hdu.header.comments['BTYPE'] = 'Molecular gas mass in pixel'
-        mom0_hdu.header['BUNIT'] = 'log Msol'
+        mom0_hdu.header['BUNIT'] = 'Msol'
         mom0_hdu.header.comments['BUNIT'] = ''
     else:
         mom0_hdu.header['BTYPE'] = 'Ico'
@@ -308,12 +306,12 @@ def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=5.4, R21=0.
         mom0_uncertainty *= alpha_co
         mom0_uncertainty /= R21
         mom0_uncertainty *= (1 + z)
-        mom0_uncertainty *= 0.434 * (mom0_uncertainty / 10 ** mom0_hdu.data)
+        #mom0_uncertainty *= 0.434 * (mom0_uncertainty / 10 ** mom0_hdu.data)
         
         mom0_uncertainty_hdu = fits.PrimaryHDU(mom0_uncertainty, mom0_hdu.header)
         mom0_uncertainty_hdu.header['BTYPE'] = 'mmol pc^-2 error'
         mom0_uncertainty_hdu.header.comments['BTYPE'] = 'Error mol. gas mass surf. dens.'
-        mom0_hdu.header['BUNIT'] = 'dex'
+        mom0_hdu.header['BUNIT'] = 'Msol pc-2'
         mom0_hdu.header.comments['BUNIT'] = ''
    
         mom0_uncertainty_hdu.writeto(savepath + 'mmol_pc-2_err.fits', overwrite=True)
@@ -325,12 +323,12 @@ def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=5.4, R21=0.
         mom0_uncertainty /= R21
         mom0_uncertainty *= (1 + z)
         mom0_uncertainty *= pc_to_pix
-        mom0_uncertainty  *= 0.434 * (mom0_uncertainty / 10 ** mom0_hdu.data)
+        #mom0_uncertainty  *= 0.434 * (mom0_uncertainty / 10 ** mom0_hdu.data)
         
         mom0_uncertainty_hdu = fits.PrimaryHDU(mom0_uncertainty, mom0_hdu.header)
         mom0_uncertainty_hdu.header['BTYPE'] = 'mmol error'
         mom0_uncertainty_hdu.header.comments['BTYPE'] = 'Error mol. gas mass in pixel'
-        mom0_hdu.header['BUNIT'] = 'dex'
+        mom0_hdu.header['BUNIT'] = 'Msol pix^-1'
         mom0_hdu.header.comments['BUNIT'] = ''
         
         mom0_uncertainty_hdu.writeto(savepath + 'mmol_pix-1_err.fits', overwrite=True)
