@@ -11,6 +11,7 @@ except:
     pass
 from matplotlib.colors import ListedColormap
 from glob import glob
+import os
 
 
 def moment_zero(mom0, galaxy, path, savename=None, units='Jy/beam km/s', alpha_co=5.4, peak=False):
@@ -240,6 +241,9 @@ def perform_moment_imaging(glob_path, targets):
         
         path = glob_path + galaxy + '/moment_maps/'
         
+        if os.path.exists(path + galaxy + '_Ico_K_kms-1.png'):
+            continue
+        
         mom0_K_kmss = glob(path + '*Ico*.fits')
         mom0_K_kms_pc2s = glob(path + '*Lco*.fits')
         mom0_Msol_pc2 = glob(path + '*mmol_pc2*.fits')
@@ -249,31 +253,35 @@ def perform_moment_imaging(glob_path, targets):
         mom1s = glob(path + '*mom1*.fits')
         mom2s = glob(path + '*mom2*.fits')
         
-        for mom0 in mom0_K_kmss:
-            moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
-                        savename=mom0.split('/')[-1].split('.fits')[0], 
-                        units='K km/s', alpha_co=5.4, peak=False)
-        for mom0 in mom0_K_kms_pc2s:
-            moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
-                        savename=mom0.split('/')[-1].split('.fits')[0], 
-                        units='K km/s pc^2', alpha_co=5.4, peak=False)
-        for mom0 in mom0_Msol_pc2:
-            moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
-                        savename=mom0.split('/')[-1].split('.fits')[0], 
-                        units='Msol pc-2', alpha_co=5.4, peak=False)
-        for mom0 in mom0_Msol_pix:
-            moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
-                        savename=mom0.split('/')[-1].split('.fits')[0], 
-                        units='Msol/pix', alpha_co=5.4, peak=False)
-        for peakT in peakTs:
-            moment_zero(fits.open(peakT)[0], galaxy=galaxy, path=path, 
-                        savename=peakT.split('/')[-1].split('.fits')[0], 
-                        peak=True)
-        for mom1 in mom1s:
-            moment_1_2(fits.open(mom1)[0], savename=mom1.split('/')[-1].split('.fits')[0], galaxy=galaxy, moment=1, path=glob_path)
-        for mom2 in mom2s:
-            moment_1_2(fits.open(mom2)[0], savename=mom2.split('/')[-1].split('.fits')[0], galaxy=galaxy, moment=2, path=glob_path)
+        try:
+        
+            for mom0 in mom0_K_kmss:
+                moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
+                            savename=mom0.split('/')[-1].split('.fits')[0], 
+                            units='K km/s', alpha_co=5.4, peak=False)
+            for mom0 in mom0_K_kms_pc2s:
+                moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
+                            savename=mom0.split('/')[-1].split('.fits')[0], 
+                            units='K km/s pc^2', alpha_co=5.4, peak=False)
+            for mom0 in mom0_Msol_pc2:
+                moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
+                            savename=mom0.split('/')[-1].split('.fits')[0], 
+                            units='Msol pc-2', alpha_co=5.4, peak=False)
+            for mom0 in mom0_Msol_pix:
+                moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
+                            savename=mom0.split('/')[-1].split('.fits')[0], 
+                            units='Msol/pix', alpha_co=5.4, peak=False)
+            for peakT in peakTs:
+                moment_zero(fits.open(peakT)[0], galaxy=galaxy, path=path, 
+                            savename=peakT.split('/')[-1].split('.fits')[0], 
+                            peak=True)
+            for mom1 in mom1s:
+                moment_1_2(fits.open(mom1)[0], savename=mom1.split('/')[-1].split('.fits')[0], galaxy=galaxy, moment=1, path=glob_path)
+            for mom2 in mom2s:
+                moment_1_2(fits.open(mom2)[0], savename=mom2.split('/')[-1].split('.fits')[0], galaxy=galaxy, moment=2, path=glob_path)
             
+        except:
+            print(galaxy)
 
 if __name__ == '__main__':
     path = '/mnt/ExtraSSD/ScienceProjects/KILOGAS/Code_Blake/'

@@ -9,7 +9,7 @@ Some additional updates and changes, including implementing
 the Dame+ 2011 smooth+clip method, by Tim Davis on April 17, 2025.
 """
 
-def perform_smooth_and_clip(path):
+def perform_smooth_and_clip(path, targets):
 
     ## Libraries to import.
     from spectral_cube import SpectralCube
@@ -29,7 +29,7 @@ def perform_smooth_and_clip(path):
     save_path = path
     
     ## target list of test galaxies; ["list of target names"]
-    targets = ['KGAS74', 'KGAS75', 'KGAS76', 'KGAS77', 'KGAS78', 'KGAS79']
+    targets = targets
     
     ## important fits file from Tim Davis that describes the min/max channel of CO line for each galaxy
     ## clipping_channels; columns are ['KGAS_ID', 'RMS', 'minchan', 'maxchan', 'minchan_v', 'maxchan_v']
@@ -46,29 +46,46 @@ def perform_smooth_and_clip(path):
     #dame_method_params = [S/N clip, beam expand factor, channel expand factor, prune_by_fracbeam]
     dame_method_params=[4,1.5,4,(2/np.pi)]
     
-    verbose, save = False, True
+    verbose, save = True, True
 
     method='dame'
     kms='10'
     
     for i,galaxy in enumerate(targets):
+        
+        verbose = True
+        
         ## get min/max channels of current target
         kgasid = int(galaxy[4:])
         idx = np.where(df['KGAS_ID']==kgasid)
+        
         minchan, maxchan  = df['minchan'][idx][0],df['maxchan'][idx][0]
         vminchan,vmaxchan=df['minchan_v'][idx][0],df['maxchan_v'][idx][0]
         
         if verbose:
             print("Current target:", galaxy)
             print('KGASID:', df['KGAS_ID'][idx][0], ', minchan:', minchan, ', maxchan:', maxchan)
+            
+            verbose = False
     
         try:
             path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.image.pbcor.ifumatched.fits"
             path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.image.ifumatched.fits"
             fits.open(path_pbcorr)
         except:
-            path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.ifumatched.fits"
-            path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.ifumatched.fits"
+            try:
+                path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.pbcor.ifumatched.fits"
+                path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.ifumatched.fits"
+                fits.open(path_pbcorr)
+            except:
+                try:
+                    path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.contsub.image.pbcor.ifumatched.fits"
+                    path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.contsub.image.ifumatched.fits"
+                    fits.open(path_pbcorr)
+                except:
+                    path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.contsub.image.pbcor.ifumatched.fits"
+                    path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.contsub.image.ifumatched.fits"
+                
     
         ## do the smooth and clip
         kgasclip = KILOGAS_clip(galaxy, path_pbcorr, path_uncorr, minchan, maxchan,

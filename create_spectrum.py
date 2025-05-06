@@ -21,7 +21,12 @@ def spectrum(cube, galaxy, start, stop, path, savepath, extra_chans=10, non_det=
         R50 = table.data['R50_ARCSEC'][table.data['KGAS_ID'] == int(galaxy.split('KGAS')[1])][0]
         rad_pix = R50 / (cube.header['CDELT2'] * 3600)
         
-        aper = CircularAperture([int(cube.shape[1] / 2), int(cube.shape[2] / 2)], rad_pix)
+        try:
+            aper = CircularAperture([int(cube.shape[1] / 2), int(cube.shape[2] / 2)], rad_pix)
+        except:
+            print(galaxy)
+            print(R50)
+            return
         
         plt.figure()
         plt.imshow(np.sum(cube.data, axis=0))
@@ -43,15 +48,16 @@ def spectrum(cube, galaxy, start, stop, path, savepath, extra_chans=10, non_det=
         #gaussian = gauss(vel_array_full, 3*rms, x0, sigma)
         
     else:
-        clip_mask = fits.open(path + galaxy + '/clip_mask.fits')[0]
+        clip_mask = fits.open(path + galaxy + '/' + galaxy + '_mask_cube.fits')[0]
         mask = np.sum(clip_mask.data, axis=0)
         mask = mask.astype(float)
+        mask[mask > 0] = 1
         
-        mask[mask==0] = np.nan
         mask3d = np.tile(mask, (cube.shape[0], 1, 1))
         masked_data = mask3d * cube.data
+        masked_data[masked_data == 0] = np.nan
         
-        spectrum = np.nansum(cube.data, axis=(1, 2))
+        spectrum = np.nansum(masked_data, axis=(1, 2))
         
     if start - extra_chans < 0:
         spectrum_velocities = vel_array_full[0:stop + extra_chans]
@@ -119,7 +125,7 @@ def plot_spectrum(spectrum, velocity, extra_chans=0, x_axis='velocity',
 
 def get_all_spectra(path, targets):
     
-    files = glob(path + '**/*co2-1*image.pbcor.fits')
+    files = glob(path + '**/*co2-1*image.pbcor*.fits')
     
     galaxies = list(set([f.split('/')[7].split('_')[0] for f in files]))
     
@@ -147,7 +153,7 @@ def get_all_spectra(path, targets):
         if not os.path.exists(path + galaxy + '/moment_maps'):
             os.mkdir(path + galaxy + '/moment_maps')
         
-        cubes = glob(path + galaxy + '/*co2-1*image.pbcor.fits')
+        cubes = glob(path + galaxy + '/*co2-1*image.pbcor*.fits')
         
         for cube in cubes:
             
@@ -155,9 +161,11 @@ def get_all_spectra(path, targets):
     
             cube_fits = fits.open(cube)[0]
     
-            spec, vel = spectrum(cube_fits, galaxy, start, stop, path, savepath, extra_chans=10, non_det=non_det)
-            
-            plot_spectrum(spec, vel, extra_chans=0, savepath=savepath)
+            try:
+                spec, vel = spectrum(cube_fits, galaxy, start, stop, path, savepath, extra_chans=10, non_det=non_det)            
+                plot_spectrum(spec, vel, extra_chans=0, savepath=savepath)
+            except:
+                pass
         
 
 if __name__ == '__main__':

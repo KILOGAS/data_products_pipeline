@@ -262,11 +262,13 @@ class KILOGAS_clip:
 
         # Estimate the rms from the spatial inner part of the cube
         inner = self.innersquare(noisecube.data)
-        rms = np.nanstd(inner[self.start-10:self.start+10,:,:])
+        #rms = np.nanstd(inner[self.start-10:self.start+10,:,:])
+        rms = np.nanstd(inner)
         
         if calc_rms:
             if self.verbose:
                 print('     Add rms value to header')
+                
             return rms
 
         snr = emiscube.data / rms
@@ -330,6 +332,7 @@ class KILOGAS_clip:
             start_y = int(cube.shape[2] / 2 - cube.shape[1] / 8)
             stop_y = int(cube.shape[2] / 2 + cube.shape[1] / 8)
             inner_square = cube[:, start_x:stop_x, start_y:stop_y]
+            
             if (inner_square == inner_square).any():
                 return inner_square
             else:
@@ -490,7 +493,6 @@ class KILOGAS_clip:
         header.comments['NCHAN_L'] = '# of consecutive channels for "core mask"'
         header['NCHAN_H'] = self.nchan_high
         header.comments['NCHAN_H'] = '# of consecutive channels for "wing mask"'
-   
 
         header['CLIP_RMS'] = self.sun_method(emiscube, noisecube, calc_rms=True)
         header.comments['CLIP_RMS'] = 'rms [K km/s] for clipping'

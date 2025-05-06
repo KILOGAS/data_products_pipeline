@@ -274,9 +274,19 @@ def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=5.4, R21=0.
             path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.image.ifumatched.fits"
             cube_pb_corr = fits.open(path_pbcorr)[0]
         except:
-            path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.pbcor.ifumatched.fits"
-            path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.ifumatched.fits"
-            cube_pb_corr = fits.open(path_pbcorr)[0]
+            try:
+                path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.pbcor.ifumatched.fits"
+                path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.ifumatched.fits"
+                cube_pb_corr = fits.open(path_pbcorr)[0]
+            except:
+                try:
+                    path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.contsub.image.pbcor.ifumatched.fits"
+                    path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.contsub.image.ifumatched.fits"
+                    cube_pb_corr = fits.open(path_pbcorr)[0]
+                except:
+                    path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.contsub.image.pbcor.ifumatched.fits"
+                    path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.contsub.image.ifumatched.fits"
+                    cube_pb_corr = fits.open(path_pbcorr)[0]
             
         cube_uncorr = fits.open(path_uncorr)[0]
         pb_cube = cube_pb_corr.copy()
@@ -393,7 +403,9 @@ def perform_moment_creation(path, targets):
     
     for galaxy in galaxies:
         
-        if not galaxy in targets:
+        print(galaxy)
+        
+        if galaxy not in targets:
             continue
              
         if not os.path.exists(path + galaxy + '/moment_maps'):
