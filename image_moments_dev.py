@@ -88,15 +88,15 @@ def moment_zero(mom0, galaxy, path, savename=None, units='Jy/beam km/s', alpha_c
         else:
             cbar.set_label(r'CO surface brightness [K km s$^{-1}$]')
     elif units == 'Msol pc-2':
-        if 'err' in savename:
-            cbar.set_label(r'mol. mass surface density error [dex]')
-        else:
-            cbar.set_label(r'mol. mass surface density [M$_\odot$ pc$^{-2}$]')
+        #if 'err' in savename:
+        #    cbar.set_label(r'mol. mass surface density error [dex]')
+        #else:
+        cbar.set_label(r'mol. mass surface density [M$_\odot$ pc$^{-2}$]')
     elif units == 'Msol/pix':
-        if 'err' in savename:
-            cbar.set_label(r'mol. mass error [dex]')
-        else:
-            cbar.set_label(r'mol. mass [log M$_\odot$]')
+        #if 'err' in savename:
+        #    cbar.set_label(r'mol. mass error [dex]')
+        #else:
+        cbar.set_label(r'mol. mass [M$_\odot$]')
     else:
         raise AttributeError('Please choose between "K km/s" and "M_Sun/pc^2"')
 
@@ -241,12 +241,12 @@ def perform_moment_imaging(glob_path, targets):
         
         path = glob_path + galaxy + '/moment_maps/'
         
-        if os.path.exists(path + galaxy + '_Ico_K_kms-1.png'):
-            continue
+        #if os.path.exists(path + galaxy + '_Ico_K_kms-1.png'):
+        #    continue
         
         mom0_K_kmss = glob(path + '*Ico*.fits')
         mom0_K_kms_pc2s = glob(path + '*Lco*.fits')
-        mom0_Msol_pc2 = glob(path + '*mmol_pc2*.fits')
+        mom0_Msol_pc2 = glob(path + '*mmol_pc-2*.fits')
         mom0_Msol_pix = glob(path + '*mmol_pix-1*.fits')
         
         peakTs = glob(path + '*peak_temp_k*.fits')
