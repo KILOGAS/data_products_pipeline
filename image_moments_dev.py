@@ -14,7 +14,10 @@ from glob import glob
 import os
 
 
-def moment_zero(mom0, galaxy, path, savename=None, units='Jy/beam km/s', alpha_co=5.4, peak=False):
+def moment_zero(mom0, galaxy, path, savename=None, units='Jy/beam km/s', alpha_co=4.35, peak=False):
+    
+    if 'err' not in savename:
+        return
 
     fig = plt.figure(figsize=(11, 8))
 
@@ -258,27 +261,27 @@ def perform_moment_imaging(glob_path, targets):
             for mom0 in mom0_K_kmss:
                 moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
                             savename=mom0.split('/')[-1].split('.fits')[0], 
-                            units='K km/s', alpha_co=5.4, peak=False)
+                            units='K km/s', alpha_co=4.35, peak=False)
             for mom0 in mom0_K_kms_pc2s:
                 moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
                             savename=mom0.split('/')[-1].split('.fits')[0], 
-                            units='K km/s pc^2', alpha_co=5.4, peak=False)
+                            units='K km/s pc^2', alpha_co=4.35, peak=False)
             for mom0 in mom0_Msol_pc2:
                 moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
                             savename=mom0.split('/')[-1].split('.fits')[0], 
-                            units='Msol pc-2', alpha_co=5.4, peak=False)
+                            units='Msol pc-2', alpha_co=4.35, peak=False)
             for mom0 in mom0_Msol_pix:
                 moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
                             savename=mom0.split('/')[-1].split('.fits')[0], 
-                            units='Msol/pix', alpha_co=5.4, peak=False)
+                            units='Msol/pix', alpha_co=4.35, peak=False)
             for peakT in peakTs:
                 moment_zero(fits.open(peakT)[0], galaxy=galaxy, path=path, 
                             savename=peakT.split('/')[-1].split('.fits')[0], 
                             peak=True)
-            for mom1 in mom1s:
-                moment_1_2(fits.open(mom1)[0], savename=mom1.split('/')[-1].split('.fits')[0], galaxy=galaxy, moment=1, path=glob_path)
-            for mom2 in mom2s:
-                moment_1_2(fits.open(mom2)[0], savename=mom2.split('/')[-1].split('.fits')[0], galaxy=galaxy, moment=2, path=glob_path)
+            #for mom1 in mom1s:
+            #    moment_1_2(fits.open(mom1)[0], savename=mom1.split('/')[-1].split('.fits')[0], galaxy=galaxy, moment=1, path=glob_path)
+            #for mom2 in mom2s:
+            #    moment_1_2(fits.open(mom2)[0], savename=mom2.split('/')[-1].split('.fits')[0], galaxy=galaxy, moment=2, path=glob_path)
             
         except:
             print(galaxy)

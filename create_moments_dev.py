@@ -252,7 +252,7 @@ def calc_moms(cube, galaxy, savepath=None, units='K km/s', alpha_co=4.35, R21=0.
         
     return mom0_hdu, mom1_hdu, mom2_hdu
     
-def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=5.4, R21=0.7):
+def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=4.35, R21=0.7):
     
     # Calculate the number of channels by converting the cube into a boolean
     cube_bool = cube.data.copy()
@@ -357,7 +357,7 @@ def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=5.4, R21=0.
         
         mom0_uncertainty_hdu.writeto(savepath + 'Lco_K_kms-1_pc2_err.fits', overwrite=True)
         
-    else:
+    else:        
         mom0_hdu, mom1_hdu, mom2_hdu = calc_moms(cube, galaxy)
         
         mom0_uncertainty_hdu = fits.PrimaryHDU(mom0_uncertainty, mom0_hdu.header)
@@ -403,10 +403,10 @@ def perform_moment_creation(path, targets):
     
     for galaxy in galaxies:
         
-        print(galaxy)
-        
         if galaxy not in targets:
             continue
+        
+        print(galaxy)
              
         if not os.path.exists(path + galaxy + '/moment_maps'):
             os.mkdir(path + galaxy + '/moment_maps')
@@ -419,20 +419,20 @@ def perform_moment_creation(path, targets):
     
             cube_fits = fits.open(cube)[0]
     
-            calc_moms(cube_fits, galaxy, savepath=savepath, units='K km/s')
-            calc_moms(cube_fits, galaxy, savepath=savepath, units='K km/s pc^2')
-            calc_moms(cube_fits, galaxy, savepath=savepath, units='Msol pc-2')
-            calc_moms(cube_fits, galaxy, savepath=savepath, units='Msol/pix')
-            calc_peak_t(cube_fits, savepath=savepath)
+            #calc_moms(cube_fits, galaxy, savepath=savepath, units='K km/s')
+            #calc_moms(cube_fits, galaxy, savepath=savepath, units='K km/s pc^2')
+            #calc_moms(cube_fits, galaxy, savepath=savepath, units='Msol pc-2')
+            #calc_moms(cube_fits, galaxy, savepath=savepath, units='Msol/pix')
+            #calc_peak_t(cube_fits, savepath=savepath)
             
             calc_uncs(cube_fits, path, galaxy, savepath=savepath, 
-                      units='K km/s', alpha_co=5.4, R21=0.7)
+                      units='K km/s', alpha_co=4.35, R21=0.7)
             calc_uncs(cube_fits, path, galaxy, savepath, 
-                      units='K km/s pc^2', alpha_co=5.4, R21=0.7)
+                      units='K km/s pc^2', alpha_co=4.35, R21=0.7)
             calc_uncs(cube_fits, path, galaxy, savepath, 
-                      units='Msol pc-2', alpha_co=5.4, R21=0.7)
+                      units='Msol pc-2', alpha_co=4.35, R21=0.7)
             calc_uncs(cube_fits, path, galaxy, savepath, 
-                      units='Msol/pix', alpha_co=5.4, R21=0.7)
+                      units='Msol/pix', alpha_co=4.35, R21=0.7)
 
 
 if __name__ == '__main__':
