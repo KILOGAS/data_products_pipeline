@@ -9,7 +9,7 @@ Some additional updates and changes, including implementing
 the Dame+ 2011 smooth+clip method, by Tim Davis on April 17, 2025.
 """
 
-def perform_smooth_and_clip(path, targets):
+def perform_smooth_and_clip(read_path, save_path, targets, chans2do):
 
     ## Libraries to import.
     from spectral_cube import SpectralCube
@@ -23,17 +23,17 @@ def perform_smooth_and_clip(path, targets):
     
     
     ## read_path points to where image cubes are stored; "path_pointing_to_data"
-    read_path = ''
+    read_path = read_path
     
     ## save_path points to where you want to save the smooth and clipped cubes; "path_to_save"
-    save_path = path
+    save_path = save_path
     
     ## target list of test galaxies; ["list of target names"]
     targets = targets
     
     ## important fits file from Tim Davis that describes the min/max channel of CO line for each galaxy
     ## clipping_channels; columns are ['KGAS_ID', 'RMS', 'minchan', 'maxchan', 'minchan_v', 'maxchan_v']
-    clipping_channels = fits.open('/mnt/ExtraSSD/ScienceProjects/KILOGAS/KGAS_chans2do.fits')
+    clipping_channels = fits.open(chans2do)
     cols = clipping_channels[1].columns ## pull out column names
     tbdata = clipping_channels[1].data  ## pull out data
     
@@ -69,22 +69,22 @@ def perform_smooth_and_clip(path, targets):
             verbose = False
     
         try:
-            path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.image.pbcor.ifumatched.fits"
-            path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.image.ifumatched.fits"
+            path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.image.pbcor.ifumatched.fits"
+            path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.image.ifumatched.fits"
             fits.open(path_pbcorr)
         except:
             try:
-                path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.pbcor.ifumatched.fits"
-                path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.ifumatched.fits"
+                path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.pbcor.ifumatched.fits"
+                path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.ifumatched.fits"
                 fits.open(path_pbcorr)
             except:
                 try:
-                    path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.contsub.image.pbcor.ifumatched.fits"
-                    path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.contsub.image.ifumatched.fits"
+                    path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.contsub.image.pbcor.ifumatched.fits"
+                    path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.contsub.image.ifumatched.fits"
                     fits.open(path_pbcorr)
                 except:
-                    path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.contsub.image.pbcor.ifumatched.fits"
-                    path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.contsub.image.ifumatched.fits"
+                    path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.contsub.image.pbcor.ifumatched.fits"
+                    path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.contsub.image.ifumatched.fits"
                 
     
         ## do the smooth and clip
