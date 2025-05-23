@@ -291,9 +291,6 @@ def calc_uncs(cube, path, galaxy, glob_cat, savepath, units='K km/s', alpha_co=4
         cube_uncorr = fits.open(path_uncorr)[0]
         pb_cube = cube_pb_corr.copy()
         pb_cube.data = cube_uncorr.data / cube_pb_corr.data
-        
-        plt.figure()
-        plt.imshow(pb_cube.data[0,:,:])
     
     pb_cube.data[cube_bool.data != cube_bool.data] = np.nan
     noise_cube = cube.header['CLIP_RMS'] / pb_cube.data
@@ -310,6 +307,9 @@ def calc_uncs(cube, path, galaxy, glob_cat, savepath, units='K km/s', alpha_co=4
     pc_to_pix = (cube.header['CDELT2'] * cosmo.kpc_proper_per_arcmin(z).value * 60 * 1000) ** 2
     
     mom0_uncertainty = noise_map * np.sqrt(N_map) * abs(cube.header['CDELT3'] / 1000)
+
+    mom0_uncertainty[np.isinf(mom0_uncertainty)] = np.nan
+    mom0_uncertainty[mom0_uncertainty <= 0] = np.nan    
 
     if units == 'Msol pc-2':
         mom0_hdu, _, _ = calc_moms(cube, galaxy, glob_cat, savepath=None, units='Msol pc-2')
