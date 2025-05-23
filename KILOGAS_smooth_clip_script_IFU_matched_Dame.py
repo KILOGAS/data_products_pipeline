@@ -67,7 +67,9 @@ def perform_smooth_and_clip(read_path, save_path, targets, chans2do):
             print('KGASID:', df['KGAS_ID'][idx][0], ', minchan:', minchan, ', maxchan:', maxchan)
             
             verbose = False
-    
+
+        print(read_path)
+        
         try:
             path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.image.pbcor.ifumatched.fits"
             path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.image.ifumatched.fits"
@@ -84,8 +86,7 @@ def perform_smooth_and_clip(read_path, save_path, targets, chans2do):
                     fits.open(path_pbcorr)
                 except:
                     path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.contsub.image.pbcor.ifumatched.fits"
-                    path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.contsub.image.ifumatched.fits"
-                
+                    path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.contsub.image.ifumatched.fits"                
     
         ## do the smooth and clip
         kgasclip = KILOGAS_clip(galaxy, path_pbcorr, path_uncorr, minchan, maxchan,
