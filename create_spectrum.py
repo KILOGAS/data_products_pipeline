@@ -11,13 +11,13 @@ def gauss(x, a, x0, sigma):
     return a * np.exp(-(x - x0) ** 2 / (2 * sigma ** 2))
 
 
-def spectrum(cube, galaxy, start, stop, path, savepath, extra_chans=10, non_det=False):
+def make_spectrum(cube, galaxy, start, stop, path, glob_cat, extra_chans=10, non_det=False):
 
     _, _, vel_array_full, _ = create_vel_array(cube)
     
     if non_det:
         
-        table = fits.open('/mnt/ExtraSSD/ScienceProjects/KILOGAS/KILOGAS_global_catalog_FWHM.fits')[1]
+        table = fits.open(glob_cat)[1]
         R50 = table.data['R50_ARCSEC'][table.data['KGAS_ID'] == int(galaxy.split('KGAS')[1])][0]
         rad_pix = R50 / (cube.header['CDELT2'] * 3600)
         
@@ -76,14 +76,14 @@ def spectrum(cube, galaxy, start, stop, path, savepath, extra_chans=10, non_det=
 
     csv_header = 'Spectrum (K), Velocity (km/s)'
 
-    np.savetxt(savepath + '_spectrum.csv',
+    np.savetxt(path + galaxy + '/' + galaxy + '_spectrum.csv',
                np.column_stack((spectrum, spectrum_velocities)),
                delimiter=',', header=csv_header)
 
     return spectrum, spectrum_velocities
 
 
-def plot_spectrum(spectrum, velocity, extra_chans=0, x_axis='velocity', 
+def plot_spectrum(galaxy, spectrum, velocity, extra_chans=0, x_axis='velocity', 
              useclipped=False, savepath=None):
 
 
@@ -119,26 +119,23 @@ def plot_spectrum(spectrum, velocity, extra_chans=0, x_axis='velocity',
     plt.tight_layout()
 
     if savepath:
-        plt.savefig(savepath + '_spectrum.png', bbox_inches='tight')
-        plt.savefig(savepath + '_spectrum.pdf', bbox_inches='tight')
+        plt.savefig(savepath + galaxy + '/' + galaxy + '_spectrum.png', bbox_inches='tight')
+        plt.savefig(savepath + galaxy + '/' + galaxy + '_spectrum.pdf', bbox_inches='tight')
 
 
-def get_all_spectra(path, targets):
+def get_all_spectra(read_path, save_path, targets, target_id, detected, chans2do, glob_cat):
     
-    files = glob(path + '**/*co2-1*image.pbcor*.fits')
+    files = glob(read_path + '**/*co2-1*image.pbcor*.fits')
     
-    galaxies = list(set([f.split('/')[7].split('_')[0] for f in files]))
+    galaxies = list(set([f.split('/')[8].split('_')[0] for f in files]))
     
-    clipping_table = fits.open('/mnt/ExtraSSD/ScienceProjects/KILOGAS/KGAS_chans2do.fits')[1]
+    clipping_table = fits.open(chans2do)[1]
     KGAS_ID = clipping_table.data['KGAS_ID']
     minchan = clipping_table.data['minchan']
     maxchan = clipping_table.data['maxchan']
     clipping_chans = {'KGAS' + id.astype(str): [min, max] for id, min, max in zip(KGAS_ID, minchan, maxchan)}
     
-    detected = np.genfromtxt('/mnt/ExtraSSD/ScienceProjects/KILOGAS/KGAS_chans2do_v_detected.csv', 
-                          delimiter=',', skip_header=1, usecols=[6], dtype=bool)
-    detected_id = np.genfromtxt('/mnt/ExtraSSD/ScienceProjects/KILOGAS/KGAS_chans2do_v_detected.csv', 
-                          delimiter=',', skip_header=1, usecols=[0], dtype=int)
+    detected_id = target_id
     
     for galaxy in galaxies:
         
@@ -150,22 +147,20 @@ def get_all_spectra(path, targets):
         start = clipping_chans[galaxy][0]
         stop = clipping_chans[galaxy][1]
              
-        if not os.path.exists(path + galaxy + '/moment_maps'):
-            os.mkdir(path + galaxy + '/moment_maps')
+        if not os.path.exists(save_path + galaxy):
+            os.mkdir(save_path + galaxy)
         
-        cubes = glob(path + galaxy + '/*co2-1*image.pbcor*.fits')
+        cubes = glob(read_path + galaxy + '/*co2-1*image.pbcor*.fits')
         
         for cube in cubes:
-            
-            savepath = path + galaxy + '/moment_maps/' + cube.split('/')[-1].split('.fits')[0]
     
             cube_fits = fits.open(cube)[0]
     
-            try:
-                spec, vel = spectrum(cube_fits, galaxy, start, stop, path, savepath, extra_chans=10, non_det=non_det)            
-                plot_spectrum(spec, vel, extra_chans=0, savepath=savepath)
-            except:
-                pass
+            #try:
+            spec, vel = make_spectrum(cube_fits, galaxy, start, stop, save_path, glob_cat=glob_cat, extra_chans=10, non_det=non_det)            
+            plot_spectrum(galaxy, spec, vel, extra_chans=0, savepath=save_path)
+            #except:
+            #    pass
         
 
 if __name__ == '__main__':

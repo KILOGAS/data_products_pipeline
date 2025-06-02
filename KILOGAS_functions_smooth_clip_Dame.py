@@ -14,6 +14,7 @@ the Dame+ 2011 smooth+clip method, by Tim Davis on April 17, 2025.
 from astropy.io import fits
 import numpy as np
 from scipy.ndimage import binary_dilation, label,uniform_filter
+import os
 
 class KILOGAS_clip:
 
@@ -126,7 +127,11 @@ class KILOGAS_clip:
             else:
                 mask_hdu.header['CLIP_RMS'] = self.dame_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu, calc_rms=True)
             mask_hdu.header.comments['CLIP_RMS'] = 'rms [K km/s] for clipping'
-            mask_hdu.writeto(self.savepath+"/"+self.galaxy+'/'+self.galaxy+'_mask_cube.fits', overwrite=True)
+
+            if not os.path.exists(self.savepath + self.galaxy):
+                os.mkdir(self.savepath + self.galaxy)
+            mask_hdu.writeto(self.savepath+self.galaxy+'/'+self.galaxy+'_mask_cube.fits', overwrite=True)
+            
 
         emiscube_pbcorr[mask == 0] = 0
         clipped_hdu = fits.PrimaryHDU(emiscube_pbcorr, cube_pbcorr.header)
@@ -163,8 +168,10 @@ class KILOGAS_clip:
         
         if self.verbose:
             print("READ .FITS")
-        cube_pbcorr = fits.open(self.readpath+"/"+self.path_pbcorr)[0]
-        cube_uncorr = fits.open(self.readpath+"/"+self.path_uncorr)[0]
+        #cube_pbcorr = fits.open(self.readpath+"/"+self.path_pbcorr)[0]
+        #cube_uncorr = fits.open(self.readpath+"/"+self.path_uncorr)[0]
+        cube_pbcorr = fits.open(self.path_pbcorr)[0]
+        cube_uncorr = fits.open(self.path_uncorr)[0]
 
         # If the first and last channels consist of nans only, remove them
         spectrum_pbcorr = np.nansum(cube_pbcorr.data, axis=(1, 2))

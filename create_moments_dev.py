@@ -101,7 +101,7 @@ def create_vel_array(cube, savepath=None):
     return vel_array, vel_narray, vel_array_full, v_step
 
 
-def calc_moms(cube, galaxy, savepath=None, units='K km/s', alpha_co=4.35, R21=0.7):
+def calc_moms(cube, galaxy, glob_cat, savepath=None, units='K km/s', alpha_co=4.35, R21=0.7):
     """
     Clip the spectral cube according to the desired method (either the 
     method Pythonified by Jiayi Sun or the more basic smooth + clip 
@@ -147,7 +147,7 @@ def calc_moms(cube, galaxy, savepath=None, units='K km/s', alpha_co=4.35, R21=0.
     mom0[mom0 < 0] = np.nan
     
     # Set redshift parameters needed for physical unit calculations
-    glob_tab = fits.open('/mnt/ExtraSSD/ScienceProjects/KILOGAS/KILOGAS_global_catalog_FWHM.fits')[1]        
+    glob_tab = fits.open(glob_cat)[1]        
     z = glob_tab.data['Z'][glob_tab.data['KGAS_ID'] == int(galaxy.split('KGAS')[1])][0]
     
     cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
@@ -252,7 +252,7 @@ def calc_moms(cube, galaxy, savepath=None, units='K km/s', alpha_co=4.35, R21=0.
         
     return mom0_hdu, mom1_hdu, mom2_hdu
     
-def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=4.35, R21=0.7):
+def calc_uncs(cube, path, galaxy, glob_cat, savepath, units='K km/s', alpha_co=4.35, R21=0.7):
     
     # Calculate the number of channels by converting the cube into a boolean
     cube_bool = cube.data.copy()
@@ -291,9 +291,6 @@ def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=4.35, R21=0
         cube_uncorr = fits.open(path_uncorr)[0]
         pb_cube = cube_pb_corr.copy()
         pb_cube.data = cube_uncorr.data / cube_pb_corr.data
-        
-        plt.figure()
-        plt.imshow(pb_cube.data[0,:,:])
     
     pb_cube.data[cube_bool.data != cube_bool.data] = np.nan
     noise_cube = cube.header['CLIP_RMS'] / pb_cube.data
@@ -303,7 +300,7 @@ def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=4.35, R21=0
     noise_map = np.nanmedian(noise_cube, axis=0)
     
     # Set redshift parameters needed for physical unit calculations
-    glob_tab = fits.open('/mnt/ExtraSSD/ScienceProjects/KILOGAS/KILOGAS_global_catalog_FWHM.fits')[1]        
+    glob_tab = fits.open(glob_cat)[1]        
     z = glob_tab.data['Z'][glob_tab.data['KGAS_ID'] == int(galaxy.split('KGAS')[1])][0]
     
     cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
@@ -311,8 +308,11 @@ def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=4.35, R21=0
     
     mom0_uncertainty = noise_map * np.sqrt(N_map) * abs(cube.header['CDELT3'] / 1000)
 
+    mom0_uncertainty[np.isinf(mom0_uncertainty)] = np.nan
+    mom0_uncertainty[mom0_uncertainty <= 0] = np.nan    
+
     if units == 'Msol pc-2':
-        mom0_hdu, _, _ = calc_moms(cube, galaxy, savepath=None, units='Msol pc-2')
+        mom0_hdu, _, _ = calc_moms(cube, galaxy, glob_cat, savepath=None, units='Msol pc-2')
         mom0_uncertainty *= alpha_co
         mom0_uncertainty /= R21
         mom0_uncertainty *= (1 + z)
@@ -327,7 +327,7 @@ def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=4.35, R21=0
         mom0_uncertainty_hdu.writeto(savepath + 'mmol_pc-2_err.fits', overwrite=True)
         
     elif units == 'Msol/pix':
-        mom0_hdu, _, _ = calc_moms(cube, galaxy, savepath=None, units='Msol/pix')
+        mom0_hdu, _, _ = calc_moms(cube, galaxy, glob_cat, savepath=None, units='Msol/pix')
         
         mom0_uncertainty *= alpha_co
         mom0_uncertainty /= R21
@@ -344,7 +344,7 @@ def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=4.35, R21=0
         mom0_uncertainty_hdu.writeto(savepath + 'mmol_pix-1_err.fits', overwrite=True)
     
     elif units == 'K km/s pc^2':
-        mom0_hdu, _, _, = calc_moms(cube, galaxy, units='K km/s pc^2')
+        mom0_hdu, _, _, = calc_moms(cube, galaxy, glob_cat, units='K km/s pc^2')
         
         mom0_uncertainty *= pc_to_pix
         mom0_uncertainty *= (1 + z)
@@ -358,7 +358,7 @@ def calc_uncs(cube, path, galaxy, savepath, units='K km/s', alpha_co=4.35, R21=0
         mom0_uncertainty_hdu.writeto(savepath + 'Lco_K_kms-1_pc2_err.fits', overwrite=True)
         
     else:        
-        mom0_hdu, mom1_hdu, mom2_hdu = calc_moms(cube, galaxy)
+        mom0_hdu, mom1_hdu, mom2_hdu = calc_moms(cube, galaxy, glob_cat)
         
         mom0_uncertainty_hdu = fits.PrimaryHDU(mom0_uncertainty, mom0_hdu.header)
         mom0_uncertainty_hdu.header['BTYPE'] = 'Ico error'
@@ -396,10 +396,11 @@ def calc_peak_t(cube, savepath):
     peak_temp_hdu.writeto(savepath + 'peak_temp_k.fits', overwrite=True)
 
 
-def perform_moment_creation(path, targets):
+def perform_moment_creation(path, targets, glob_cat):
     
     files = glob(path + '**/*subcube.fits')
-    galaxies = list(set([f.split('/')[7].split('_')[0] for f in files]))
+    
+    galaxies = list(set([f.split('/')[8].split('_')[0] for f in files]))
     
     for galaxy in galaxies:
         
@@ -407,31 +408,28 @@ def perform_moment_creation(path, targets):
             continue
         
         print(galaxy)
-             
-        if not os.path.exists(path + galaxy + '/moment_maps'):
-            os.mkdir(path + galaxy + '/moment_maps')
         
         cubes = glob(path + galaxy + '/*subcube.fits')
         
         for cube in cubes:
             
-            savepath = path + galaxy + '/moment_maps/' + cube.split('/')[-1].split('.fits')[0].split('expanded')[0]
+            savepath = path + galaxy + '/' + cube.split('/')[-1].split('.fits')[0].split('expanded')[0]
     
             cube_fits = fits.open(cube)[0]
     
-            #calc_moms(cube_fits, galaxy, savepath=savepath, units='K km/s')
-            #calc_moms(cube_fits, galaxy, savepath=savepath, units='K km/s pc^2')
-            #calc_moms(cube_fits, galaxy, savepath=savepath, units='Msol pc-2')
-            #calc_moms(cube_fits, galaxy, savepath=savepath, units='Msol/pix')
-            #calc_peak_t(cube_fits, savepath=savepath)
+            calc_moms(cube_fits, galaxy, glob_cat=glob_cat, savepath=savepath, units='K km/s', alpha_co=4.35, R21=0.7)
+            calc_moms(cube_fits, galaxy, glob_cat=glob_cat, savepath=savepath, units='K km/s pc^2', alpha_co=4.35, R21=0.7)
+            calc_moms(cube_fits, galaxy, glob_cat=glob_cat, savepath=savepath, units='Msol pc-2', alpha_co=4.35, R21=0.7)
+            calc_moms(cube_fits, galaxy, glob_cat=glob_cat, savepath=savepath, units='Msol/pix', alpha_co=4.35, R21=0.7)
+            calc_peak_t(cube_fits, savepath=savepath)
             
-            calc_uncs(cube_fits, path, galaxy, savepath=savepath, 
+            calc_uncs(cube_fits, path, galaxy, glob_cat=glob_cat, savepath=savepath, 
                       units='K km/s', alpha_co=4.35, R21=0.7)
-            calc_uncs(cube_fits, path, galaxy, savepath, 
+            calc_uncs(cube_fits, path, galaxy, glob_cat=glob_cat, savepath=savepath, 
                       units='K km/s pc^2', alpha_co=4.35, R21=0.7)
-            calc_uncs(cube_fits, path, galaxy, savepath, 
+            calc_uncs(cube_fits, path, galaxy, glob_cat=glob_cat, savepath=savepath, 
                       units='Msol pc-2', alpha_co=4.35, R21=0.7)
-            calc_uncs(cube_fits, path, galaxy, savepath, 
+            calc_uncs(cube_fits, path, galaxy, glob_cat=glob_cat, savepath=savepath, 
                       units='Msol/pix', alpha_co=4.35, R21=0.7)
 
 
