@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-@author: Blake Ledger, updated April 16, 2025
+@author: Blake Ledger, updated June 3, 2025
 
 This is the main script which performs the smooth and clip on
 the ALMA data cubes, IFU-matched and native_resolution.
 
-Some additional updates and changes, including implementing
-the Dame+ 2011 smooth+clip method, by Tim Davis on April 17, 2025.
+Some additional updates and changes, including removing most of the infrastructure for
+Sun method testing as we are focused on the Dame+ 2011 smooth+clip method, which was implemented in the code by Tim Davis on April 17, 2025 and updated by Blake + Scott June 3, 2025.
 """
 
 def perform_smooth_and_clip(read_path, save_path, targets, chans2do):
@@ -19,8 +19,7 @@ def perform_smooth_and_clip(read_path, save_path, targets, chans2do):
     import numpy as np
     
     ## Main functions which will be used for the smoothing and clipping.
-    from KILOGAS_functions_smooth_clip_Dame import KILOGAS_clip
-    
+    from smooth_and_clip_functions import KILOGAS_clip
     
     ## read_path points to where image cubes are stored; "path_pointing_to_data"
     read_path = read_path
@@ -42,9 +41,11 @@ def perform_smooth_and_clip(read_path, save_path, targets, chans2do):
     
     #sun_method_params = [nchan_hi,snr_hi,nchan_lo,snr_lo,prune_by_npix,prune_by_fracbeam,
     #                     expand_by_npix,expand_by_fracbeam,expand_by_nchan]
-    sun_method_params = [3,3,2,2, None, 0.1, None, None, None]
+    ## sun_method_params = [3,3,2,2, None, 0.1, None, None, None]
+    
     #dame_method_params = [S/N clip, beam expand factor, channel expand factor, prune_by_fracbeam]
-    dame_method_params=[4,1.5,4,(2/np.pi)]
+    ## Initial parameters implemented by Tim, dame_method_params=[4,1.5,4,(2/np.pi)]
+    dame_method_params=[3,2,4,(2/np.pi)] ## New parameters tested by Blake for detecting more faint emission
     
     verbose, save = True, True
 
@@ -71,44 +72,42 @@ def perform_smooth_and_clip(read_path, save_path, targets, chans2do):
         print(read_path)
         
         try:
-            path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.image.pbcor.ifumatched.fits"
-            path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.image.ifumatched.fits"
+            path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+kms+".0kmps_12m.image.pbcor.ifumatched.fits"
+            path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+kms+".0kmps_12m.image.ifumatched.fits"
             fits.open(path_pbcorr)
         except:
             try:
-                path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.pbcor.ifumatched.fits"
-                path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.ifumatched.fits"
+                path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+kms+".0kmps_7m+12m.image.pbcor.ifumatched.fits"
+                path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+kms+".0kmps_7m+12m.image.ifumatched.fits"
                 fits.open(path_pbcorr)
             except:
                 try:
-                    path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.contsub.image.pbcor.ifumatched.fits"
-                    path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.contsub.image.ifumatched.fits"
+                    path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+kms+".0kmps_12m.contsub.image.pbcor.ifumatched.fits"
+                    path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+kms+".0kmps_12m.contsub.image.ifumatched.fits"
                     fits.open(path_pbcorr)
                 except:
-                    path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.contsub.image.pbcor.ifumatched.fits"
-                    path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.contsub.image.ifumatched.fits"                
+                    path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+kms+".0kmps_7m+12m.contsub.image.pbcor.ifumatched.fits"
+                    path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+kms+".0kmps_7m+12m.contsub.image.ifumatched.fits"                
     
         ## do the smooth and clip
-        kgasclip = KILOGAS_clip(galaxy, path_pbcorr, path_uncorr, minchan, maxchan,
-                            verbose, save, read_path, save_path,
-                              sun_method_params=sun_method_params,dame_method_params=dame_method_params)
+        kgasclip = KILOGAS_clip(galaxy, path_pbcorr, path_uncorr, , minchan, maxchan,
+                            verbose, save, read_path, save_path, dame_method_params=dame_method_params)
         clipped_emiscube, clipped_noisecube = kgasclip.do_clip(method=method)
         
-        
-        
+
 if __name__ == '__main__':
     path = '/mnt/ExtraSSD/ScienceProjects/KILOGAS/Code_Blake/'
     perform_smooth_and_clip(path)
+
         
+
         
+
         
+
         
+
         
+
         
-        
-        
-        
-        
-        
-        
-    
+

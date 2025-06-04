@@ -8,20 +8,16 @@
 ## Smoothing and clipping script and functions updates
 
 # - updated the Dame parameters in the "smooth_and_clip.py" script based on testing by Blake done on May 30, 2025, to dame_method_params=[3,2,4,(2/np.pi)]
-# - cleaned up some of the Sun method code / function calls, as they are less necessary (e.g moved to bottom of function list)
-# - adjusted order of functions based on priority (e.g. moved all Sun method functions to end of script)
+# - cleaned up some of the Sun method code / function calls, as they are less necessary
 # - in the "smooth_and_clip.py" script, updated the filenames to include "kms" as a variable input
-# - added an elif for the places where we select the "dame" method to be explicit along with the "sun" method in the smooth_and_clip_functions.py
+# - added an elif for the "dame" method to be explicit along with the "sun" method in the smooth_and_clip_functions.py
 # - when saving the binary mask cube, changed so that the correct velocity range is saved in the header
+# - adjusted order of functions based on priority (e.g. moved all Sun method functions to end of script)
 # - updated saving keywords in header to include the Dame method as the main option
-# - updated smoothed cubes to have the correct ordering of spectral,x,y in the uniform filter
-# - updated noise to be calculated for 10 channels on either side of the line, UNLESS the line starts/ends within 10 channels on either end of the cube edge, then use the 20 channels after/before the line, including updating the functions to include a size variable = len ( emission_cube ) e.g. # of channels in full cubes
-
-
 
 ## Notes / questions for Nikki
 
-# - check saving path on clipped_hdu.writeto() portion of the code. I made the paths the SAME for now for the masked cube and the S+C cube.
+# - check saving path on clipped_hdu.writeto portion of the code
 
 
 import matplotlib

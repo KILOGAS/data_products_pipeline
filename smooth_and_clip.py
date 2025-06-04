@@ -1,122 +1,113 @@
 # -*- coding: utf-8 -*-
 """
-@author: Blake Ledger, created Feb 7 2025
+@author: Blake Ledger, updated June 3, 2025
 
-Code written by Blake Ledger (UVic) to perform the Smooth+Clip analysis for the
-sample of KILOGAS galaxies. This is part of the Data Products Working Group
-workflow, where Tim Davis (Cardiff) is working on line identification, Nikki
-Zabel (U Cape Town) is working on moment map creation, and Hsi-An Pan (Tamkang U.)
-will do the convolution and grid matching to the IFU data products.
+This is the main script which performs the smooth and clip on
+the ALMA data cubes, IFU-matched and native_resolution.
 
-Smoothing expands the mask a little bit, so that the clipping is not too harsh and
-some of the lower S/N emission around the edges isn't missed. In this code, there is
-the slightly more advanced way, the "Sun" way, which refers to an algorithm that was
-translated to Python code by Jiayi Sun a couple of years ago.
-
-Clipping is making a mask out of the smoothed cube (setting everything below a
-certain S/N threshold to 0) and applying it to the original (unsmoothed) cube, so
-that we get rid of all the noise and get cleaner data products
-
-This is the main smooth_and_clip.py Python file which should be run to perform
-the relative steps. The script requires a path pointing to the location of the
-image cubes, a list of targets, and an input file from Tim/the line identification
-script which has the "start" and "stop" parameters indicating the first and last
-channels around the CO line.
+Some additional updates and changes, including removing most of the infrastructure for
+Sun method testing as we are focused on the Dame+ 2011 smooth+clip method, which was implemented in the code by Tim Davis on April 17, 2025 and updated by Blake + Scott June 3, 2025.
 """
 
-def perform_smooth_and_clip(path, ifu_match=False):
-    from KILOGAS_functions import KILOGAS_clip
-    import os
+def perform_smooth_and_clip(read_path, save_path, targets, chans2do):
+
+    ## Libraries to import.
+    from spectral_cube import SpectralCube
+    import astropy.units as u
     from astropy.io import fits
-
-    targets = ['KGAS7', 'KGAS74', 'KGAS86', 'KGAS215', 'KGAS291', 'KGAS300', 'KGAS435']
-
-    clipping_table = fits.open('/mnt/ExtraSSD/ScienceProjects/KILOGAS/KGAS_chans2do.fits')[1]
-    KGAS_ID = clipping_table.data['KGAS_ID']
-    minchan = clipping_table.data['minchan']
-    maxchan = clipping_table.data['maxchan']
+    from astropy.table import Table
+    import numpy as np
     
-    clipping_chans = {'KGAS' + id.astype(str): [min, max] for id, min, max in zip(KGAS_ID, minchan, maxchan)}
+    ## Main functions which will be used for the smoothing and clipping.
+    from smooth_and_clip_functions import KILOGAS_clip
     
-    save_files = True
+    ## read_path points to where image cubes are stored; "path_pointing_to_data"
+    read_path = read_path
+    
+    ## save_path points to where you want to save the smooth and clipped cubes; "path_to_save"
+    save_path = save_path
+    
+    ## target list of test galaxies; ["list of target names"]
+    targets = targets
+    
+    ## important fits file from Tim Davis that describes the min/max channel of CO line for each galaxy
+    ## clipping_channels; columns are ['KGAS_ID', 'RMS', 'minchan', 'maxchan', 'minchan_v', 'maxchan_v']
+    clipping_channels = fits.open(chans2do)
+    cols = clipping_channels[1].columns ## pull out column names
+    tbdata = clipping_channels[1].data  ## pull out data
+    
+    ## create a dataframe with the table data
+    df = Table(tbdata)
+    
+    #sun_method_params = [nchan_hi,snr_hi,nchan_lo,snr_lo,prune_by_npix,prune_by_fracbeam,
+    #                     expand_by_npix,expand_by_fracbeam,expand_by_nchan]
+    ## sun_method_params = [3,3,2,2, None, 0.1, None, None, None]
+    
+    #dame_method_params = [S/N clip, beam expand factor, channel expand factor, prune_by_fracbeam]
+    ## Initial parameters implemented by Tim, dame_method_params=[4,1.5,4,(2/np.pi)]
+    dame_method_params=[3,2,4,(2/np.pi)] ## New parameters tested by Blake for detecting more faint emission
+    
+    verbose, save = True, True
 
-    if ifu_match:
-        nchan_hi = 3
-        snr_hi = 3
-        nchan_lo = 2
-        snr_lo = 2.5
-        prune_by_npix = None
-        prune_by_fracbeam = None
-        expand_by_npix = None
-        expand_by_fracbeam = None
-        expand_by_nchan = None        
-    else:
-        nchan_hi = 3
-        snr_hi = 3
-        nchan_lo = 2
-        snr_lo = 1.5
-        prune_by_npix = None
-        prune_by_fracbeam = 0.15
-        expand_by_npix = None
-        expand_by_fracbeam = None
-        expand_by_nchan = None
-
-    #Use Jiayi's method to get the signal in the cube.
-    #Default nchan_hi=3, snr_hi=3.5, nchan_lo=2, snr_lo=2
-    #Sun method expansions to remove more noisy features smaller than the beam.
-    #Default prune_by_npix=None, prune_by_fracbeam=1., expand_by_npix=None, expand_by_fracbeam=0., expand_by_nchan=2
-
-    sun_method_params = [nchan_hi, snr_hi, nchan_lo, snr_lo, prune_by_npix, 
-                         prune_by_fracbeam, expand_by_npix, expand_by_fracbeam,
-                         expand_by_nchan]
-
-    #path = "path_where_image_cubes_are_stored"
-    #targets = ["list of target names"]
-    #clipping_chans = TBD on format, but first/last channels of CO line
-
-    for galaxy in targets:
-        print("Current target:", galaxy)
+    method='dame'
+    kms='10'
+    
+    for i,galaxy in enumerate(targets):
+        
+        verbose = True
+        
+        ## get min/max channels of current target
+        kgasid = int(galaxy[4:])
+        idx = np.where(df['KGAS_ID']==kgasid)
+        
+        minchan, maxchan  = df['minchan'][idx][0],df['maxchan'][idx][0]
+        vminchan,vmaxchan=df['minchan_v'][idx][0],df['maxchan_v'][idx][0]
+        
+        if verbose:
+            print("Current target:", galaxy)
+            print('KGASID:', df['KGAS_ID'][idx][0], ', minchan:', minchan, ', maxchan:', maxchan)
             
-        if ifu_match:
+            verbose = False
+
+        print(read_path)
+        
+        try:
+            path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+kms+".0kmps_12m.image.pbcor.ifumatched.fits"
+            path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+kms+".0kmps_12m.image.ifumatched.fits"
+            fits.open(path_pbcorr)
+        except:
             try:
-                path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.image.pbcor.ifumatched.fits"
-                path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.image.ifumatched.fits"
+                path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+kms+".0kmps_7m+12m.image.pbcor.ifumatched.fits"
+                path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+kms+".0kmps_7m+12m.image.ifumatched.fits"
                 fits.open(path_pbcorr)
             except:
-                path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.ifumatched.fits"
-                path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.ifumatched.fits"
-                
-            savepath = path+galaxy+"/"+galaxy+"_ifumatch_test.fits"
-            
-        else:
-            try:
-                path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.image.pbcor.fits"
-                path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.image.fits"
-                fits.open(path_pbcorr)
-            except:
-                path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.fits"
-                path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.fits"
-                
-            savepath = path+galaxy+"/"+galaxy+'_test.fits'
-        
-        start = clipping_chans[galaxy][0]
-        stop = clipping_chans[galaxy][1]
-        
-        #print(sun_method_params)
-        
-        clip_emiscube, clipped_noisecube = KILOGAS_clip(galaxy, path, path_pbcorr, 
-                path_uncorr, start, stop, sun_method_params).do_clip()
-
-        if save_files:
-            if not os.path.exists(path + galaxy):
-                os.mkdir(path + galaxy)
-            clip_emiscube.writeto(savepath, overwrite=True)
-            #clip_emiscube.writeto(path+galaxy+"/"+galaxy+'_co2-1_7m+12m.image.pbcor.expanded_pruned_subcube.fits', overwrite=True)
-        print("CLIP CUBE SAVED FOR", galaxy)
-        print()
+                try:
+                    path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+kms+".0kmps_12m.contsub.image.pbcor.ifumatched.fits"
+                    path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+kms+".0kmps_12m.contsub.image.ifumatched.fits"
+                    fits.open(path_pbcorr)
+                except:
+                    path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+kms+".0kmps_7m+12m.contsub.image.pbcor.ifumatched.fits"
+                    path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+kms+".0kmps_7m+12m.contsub.image.ifumatched.fits"                
+    
+        ## do the smooth and clip
+        kgasclip = KILOGAS_clip(galaxy, path_pbcorr, path_uncorr, , minchan, maxchan,
+                            verbose, save, read_path, save_path, dame_method_params=dame_method_params)
+        clipped_emiscube, clipped_noisecube = kgasclip.do_clip(method=method)
         
 
 if __name__ == '__main__':
     path = '/mnt/ExtraSSD/ScienceProjects/KILOGAS/Code_Blake/'
     perform_smooth_and_clip(path)
+
+        
+
+        
+
+        
+
+        
+
+        
+
+        
 

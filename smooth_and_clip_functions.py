@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-@author: Blake Ledger, updated April 18, 2025
+@author: Blake Ledger, updated June 3, 2025
 
 This is a compilation of functions from Nikki Zabel's KILOGAS
 GitHub page and what was used for VERTICO. I kept what I felt
@@ -43,14 +43,18 @@ class KILOGAS_clip:
         self.savepath = save_path  
 
         
-    def do_clip(self,method='sun'):
+    def do_clip(self,method='dame'):
         """
-        Perform the clipping of the data cube, using the method adopted
-        and optimised by Jiayi Sun.
+        Perform the clipping of the data cube, using either the Dame+11
+        standard smooth and clip or the more complicated explanding mask
+        method adopted and optimised by Jiayi Sun.
 
         Parameters
         ----------
-        None
+        method (Default 'dame' method)
+            The smooth and clip method to implement (code is optimized for
+            the Dame+11 method, implemented by Tim Davis and updated by here
+            by Blake Ledger)
 
         Returns
         -------
@@ -92,9 +96,10 @@ class KILOGAS_clip:
         noisecube_pbcorr_hdu = fits.PrimaryHDU(noisecube_pbcorr, cube_pbcorr.header)
         
         if method == 'sun':
-            mask = self.sun_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu)
-        else:
-            mask = self.dame_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu)
+            mask = self.sun_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu, len(emiscube_pbcorr))
+        elif method == 'dame':
+            mask = self.dame_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu, len(emiscube_pbcorr))
+            
         mask_hdu = fits.PrimaryHDU(mask.astype(int), cube_pbcorr.header)
 
         if self.verbose:
@@ -106,7 +111,7 @@ class KILOGAS_clip:
                 
             if method == 'sun':    
                 mask_hdu.header.add_comment('Cube was clipped using the Sun+18 masking method', before='BUNIT')
-            else:
+            elif method == 'dame':
                 mask_hdu.header.add_comment('Cube was clipped using the Dame+11 masking method', before='BUNIT')
             
             try:
@@ -123,13 +128,16 @@ class KILOGAS_clip:
                 pass
 
             if method == 'sun':
-                mask_hdu.header['CLIP_RMS'] = self.sun_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu, calc_rms=True)
-            else:
-                mask_hdu.header['CLIP_RMS'] = self.dame_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu, calc_rms=True)
+                mask_hdu.header['CLIP_RMS'] = self.sun_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu, len(emiscube_pbcorr), calc_rms=True)
+            elif method == 'dame':
+                mask_hdu.header['CLIP_RMS'] = self.dame_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu, len(emiscube_pbcorr), calc_rms=True)
             mask_hdu.header.comments['CLIP_RMS'] = 'rms [K km/s] for clipping'
 
             if not os.path.exists(self.savepath + self.galaxy):
                 os.mkdir(self.savepath + self.galaxy)
+
+            # Adjust the header to match the velocity range used
+            mask_hdu.header['CRVAL3'] += self.start * mask_hdu.header['CDELT3']
             mask_hdu.writeto(self.savepath+self.galaxy+'/'+self.galaxy+'_mask_cube.fits', overwrite=True)
             
 
@@ -141,12 +149,12 @@ class KILOGAS_clip:
         
         if self.verbose:
             print("CLIP APPLIED")
-        self.add_clipping_keywords(emiscube_uncorr_hdu, noisecube_uncorr_hdu, clipped_hdu.header)
+        self.add_clipping_keywords(emiscube_uncorr_hdu, noisecube_uncorr_hdu, len(emiscube_pbcorr), clipped_hdu.header)
 
         if self.tosave:
             if self.verbose:
                 print("EMISSION CUBE SAVED")
-            clipped_hdu.writeto(self.savepath+"/"+self.galaxy+'/' + self.galaxy + '_expanded_pruned_subcube.fits', overwrite=True)
+            clipped_hdu.writeto(self.savepath+self.galaxy+'/'+self.galaxy + '_expanded_pruned_subcube.fits', overwrite=True)
         
         return clipped_hdu, noisecube_pbcorr_hdu
         
@@ -168,8 +176,7 @@ class KILOGAS_clip:
         
         if self.verbose:
             print("READ .FITS")
-        #cube_pbcorr = fits.open(self.readpath+"/"+self.path_pbcorr)[0]
-        #cube_uncorr = fits.open(self.readpath+"/"+self.path_uncorr)[0]
+
         cube_pbcorr = fits.open(self.path_pbcorr)[0]
         cube_uncorr = fits.open(self.path_uncorr)[0]
 
@@ -191,13 +198,16 @@ class KILOGAS_clip:
 
         return cube_pbcorr, cube_uncorr
 
-    def dame_method(self, emiscube, noisecube, calc_rms=False):
+    def dame_method(self, emiscube, noisecube, size, calc_rms=False):
         """
         Function added by Tim Davis on April 17, 2025
+        Function updated by Blake Ledger and Scott Wilkinson on June 3, 2025
         
-        Apply a uniform smooth, using sigma = 4 in the velocity direction (seems to work best), to the    uncorrected cube.
+        Apply a uniform smooth, using sigma = 3 (updated from = 4 by Blake) in the velocity direction
+        (seems to work best), to the uncorrected cube.
         :return: (ndarray) mask to apply to the un-clipped cube
         """
+        
         if self.verbose and not(calc_rms):
             print('DO DAME METHOD')
             
@@ -211,9 +221,35 @@ class KILOGAS_clip:
         bmin_pix = emiscube.header['BMAJ']/cellsize  # deg.  
             
         sigma = self.dame_beamexpand * bmaj_pix
-        smooth_cube = uniform_filter(emiscube.data, size=[sigma, sigma,self.dame_chanexpand], mode='constant') 
-        smooth_cube_noise = uniform_filter(noisecube.data, size=[sigma, sigma,self.dame_chanexpand], mode='constant')  
-        newrms = np.nanstd(self.innersquare(smooth_cube_noise)[self.start-10:self.start+10,:,:])
+        
+        smooth_cube = uniform_filter(emiscube.data, size=[self.dame_chanexpand, sigma, sigma], mode='constant') 
+        smooth_cube_noise = uniform_filter(noisecube.data, size=[self.dame_chanexpand, sigma, sigma], mode='constant') 
+
+
+        #newrms = np.nanstd(self.innersquare(smooth_cube_noise)[self.start-10:self.start+10,:,:])
+        #New noise calculation fixed to included cases where line is within 10 channels of the start or end of the cube
+        
+        if (self.start<=10) and ((size - self.stop)>20):
+            # if line starts within 10 channels from the left edge, use the 20 channels immediately following the line
+            noise_window = self.innersquare(smooth_cube_noise)[self.start:self.start+20,:,:]
+        
+        elif ((size - self.stop)<=10) and (self.start>20):
+            # if line end is 10 channels from the right edge, use the 20 channels immediately preceding the line
+            noise_window = self.innersquare(smooth_cube_noise)[self.start-20:self.start,:,:]
+        
+        elif ((size - self.stop)>10) and (self.start>10):
+            # if line is 10 channels or more from either edge, take the 10 channels on either side
+            noise_window = self.innersquare(smooth_cube_noise)[self.start-10:self.start+10,:,:]
+
+        else:
+            print('WARNING: The line starts and ends within ten channels of the edges of the cube. Consider expanding your frequency range.')
+            noise_window = None
+        
+        if noise_window is not None:
+            newrms = np.nanstd(noise_window)
+        else:
+            newrms = np.nan
+
         self.maskcliplevel=newrms*self.dame_clipsn    
         mask=(smooth_cube > self.maskcliplevel)
         
@@ -225,8 +261,109 @@ class KILOGAS_clip:
                 mask[labels == thelabel]=False
         
         return mask
+
+    def innersquare(self, cube):
+        """
+        Get the central square (in spatial directions) of the spectral cube (useful for calculating the
+        rms in a PB corrected spectral cube). Can be used for 2 and 3 dimensions, in the latter case the
+        velocity axis is left unchanged.
+        
+        Parameters
+        ----------
+        cube : 2D or 3D array
+            3D array input cube or 2D image
+            
+        Returns
+        -------
+        cube : 2D or 3D array
+            2D or 3D array of the inner 1/8 of the cube in the spatial directions
+        """
+
+        if self.verbose:
+            print('MEASURE RMS NOISE IN INNERSQUARE')
+        
+        if len(cube.shape) == 3:
+            start_x = int(cube.shape[1] / 2 - cube.shape[1] / 8)
+            stop_x = int(cube.shape[1] / 2 + cube.shape[1] / 8)
+            start_y = int(cube.shape[2] / 2 - cube.shape[1] / 8)
+            stop_y = int(cube.shape[2] / 2 + cube.shape[1] / 8)
+            inner_square = cube[:, start_x:stop_x, start_y:stop_y]
+            
+            if (inner_square == inner_square).any():
+                return inner_square
+            else:
+                return cube
+
+        elif len(cube.shape) == 2:
+            start_x = int(cube.shape[0] / 2 - 20)
+            stop_x = int(cube.shape[0] / 2 + 20)
+            start_y = int(cube.shape[1] / 2 - 20)
+            stop_y = int(cube.shape[1] / 2 + 20)
+            inner_square = cube[start_x:stop_x, start_y:stop_y]
+            if (inner_square == inner_square).any():
+                return inner_square
+            else:
+                return cube
+            
+        else:
+            raise AttributeError('Please provide a 2D or 3D array.')
     
-    def sun_method(self, emiscube, noisecube, calc_rms=False):
+    def add_clipping_keywords(self, emiscube, noisecube, size, header, method='dame'):
+        """
+        Add information to the header specifying details about the clipping.
+
+        Parameters
+        ----------
+        header : FITS header
+            Header of the cube that was clipped.
+
+        Returns
+        -------
+        header : FITS header
+            Header of the cube with clipping-related keywords added.
+
+        """
+
+        if self.verbose:
+            print('     Add keywords to cube header')
+
+        if method == 'dame':
+            try:
+                header.add_comment('Cube was clipped using the Dame+11 masking method', before='BUNIT')
+            except:
+                header.add_comment('Cube was clipped using the Dame+11 masking method', after='NAXIS2')
+            header['D_CLIP'] = self.dame_clipsn
+            header.comments['D_CLIP'] = 'S/N threshold in mask'
+            header['D_B_EXP'] = self.dame_beamexpand
+            header.comments['D_B_EXP'] = 'Beam expand factor in mask'
+            header['D_C_EXP'] = self.dame_chanexpand
+            header.comments['D_C_EXP'] = 'Channel expand factor in mask'
+            header['PRUNE'] = self.dame_suppress_subbeam_artifacts
+            header.comments['PRUNE'] = 'Prune by fraction factor in mask'
+
+            header['CLIP_RMS'] = self.dame_method(emiscube, noisecube, size, calc_rms=True)
+            header.comments['CLIP_RMS'] = 'rms [K km/s] for clipping'
+
+        elif method == 'sun':
+            try:
+                header.add_comment('Cube was clipped using the Sun+18 masking method', before='BUNIT')
+            except:
+                header.add_comment('Cube was clipped using the Sun+18 masking method', after='NAXIS2')
+            header['CLIPL_L'] = self.cliplevel_low
+            header.comments['CLIPL_L'] = 'S/N threshold specified for "wing mask"'
+            header['CLIPL_H'] = self.cliplevel_high
+            header.comments['CLIPL_H'] = 'S/N threshold specified for "core mask"'
+            header['NCHAN_L'] = self.nchan_low
+            header.comments['NCHAN_L'] = '# of consecutive channels for "core mask"'
+            header['NCHAN_H'] = self.nchan_high
+            header.comments['NCHAN_H'] = '# of consecutive channels for "wing mask"'
+    
+            header['CLIP_RMS'] = self.sun_method(emiscube, noisecube, size, calc_rms=True)
+            header.comments['CLIP_RMS'] = 'rms [K km/s] for clipping'
+
+        return header
+            
+    def sun_method(self, emiscube, noisecube, size, calc_rms=False):
         """
         Apply Jiayi Sun's clipping method, including options to prune 
         detections with small areas on the sky, or expand the mask in the mask
@@ -312,52 +449,6 @@ class KILOGAS_clip:
             mask = self.expand_along_spectral(mask)
 
         return mask
-
-    def innersquare(self, cube):
-        """
-        Get the central square (in spatial directions) of the spectral cube (useful for calculating the rms in a PB
-        corrected spectral cube). Can be used for 2 and 3 dimensions, in the latter case the velocity axis is left
-        unchanged.
-        
-        Parameters
-        ----------
-        cube : 2D or 3D array
-            3D array input cube or 2D image
-            
-        Returns
-        -------
-        cube : 2D or 3D array
-            2D or 3D array of the inner 1/8 of the cube in the spatial directions
-        """
-
-        if self.verbose:
-            print('MEASURE RMS NOISE IN INNERSQUARE')
-        
-        if len(cube.shape) == 3:
-            start_x = int(cube.shape[1] / 2 - cube.shape[1] / 8)
-            stop_x = int(cube.shape[1] / 2 + cube.shape[1] / 8)
-            start_y = int(cube.shape[2] / 2 - cube.shape[1] / 8)
-            stop_y = int(cube.shape[2] / 2 + cube.shape[1] / 8)
-            inner_square = cube[:, start_x:stop_x, start_y:stop_y]
-            
-            if (inner_square == inner_square).any():
-                return inner_square
-            else:
-                return cube
-
-        elif len(cube.shape) == 2:
-            start_x = int(cube.shape[0] / 2 - 20)
-            stop_x = int(cube.shape[0] / 2 + 20)
-            start_y = int(cube.shape[1] / 2 - 20)
-            stop_y = int(cube.shape[1] / 2 + 20)
-            inner_square = cube[start_x:stop_x, start_y:stop_y]
-            if (inner_square == inner_square).any():
-                return inner_square
-            else:
-                return cube
-            
-        else:
-            raise AttributeError('Please provide a 2D or 3D array.')
 
     def prune_small_detections(self, cube, mask):
         """
@@ -468,40 +559,3 @@ class KILOGAS_clip:
             mask |= tempmask
 
         return mask
-
-    def add_clipping_keywords(self, emiscube, noisecube, header):
-        """
-        Add information to the header specifying details about the clipping.
-
-        Parameters
-        ----------
-        header : FITS header
-            Header of the cube that was clipped.
-
-        Returns
-        -------
-        header : FITS header
-            Header of the cube with clipping-related keywords added.
-
-        """
-
-        if self.verbose:
-            print('     Add keywords to cube header')
-        
-        try:
-            header.add_comment('Cube was clipped using the Sun+18 masking method', before='BUNIT')
-        except:
-            header.add_comment('Cube was clipped using the Sun+18 masking method', after='NAXIS2')
-        header['CLIPL_L'] = self.cliplevel_low
-        header.comments['CLIPL_L'] = 'S/N threshold specified for "wing mask"'
-        header['CLIPL_H'] = self.cliplevel_high
-        header.comments['CLIPL_H'] = 'S/N threshold specified for "core mask"'
-        header['NCHAN_L'] = self.nchan_low
-        header.comments['NCHAN_L'] = '# of consecutive channels for "core mask"'
-        header['NCHAN_H'] = self.nchan_high
-        header.comments['NCHAN_H'] = '# of consecutive channels for "wing mask"'
-
-        header['CLIP_RMS'] = self.sun_method(emiscube, noisecube, calc_rms=True)
-        header.comments['CLIP_RMS'] = 'rms [K km/s] for clipping'
-
-        return header
