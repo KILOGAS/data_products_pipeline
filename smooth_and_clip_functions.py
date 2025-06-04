@@ -96,9 +96,9 @@ class KILOGAS_clip:
         noisecube_pbcorr_hdu = fits.PrimaryHDU(noisecube_pbcorr, cube_pbcorr.header)
         
         if method == 'sun':
-            mask = self.sun_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu, len(emiscube_pbcorr))
+            mask = self.sun_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu, len(cube_pbcorr.data))
         elif method == 'dame':
-            mask = self.dame_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu, len(emiscube_pbcorr))
+            mask = self.dame_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu, len(cube_pbcorr.data))
             
         mask_hdu = fits.PrimaryHDU(mask.astype(int), cube_pbcorr.header)
 
@@ -128,9 +128,9 @@ class KILOGAS_clip:
                 pass
 
             if method == 'sun':
-                mask_hdu.header['CLIP_RMS'] = self.sun_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu, len(emiscube_pbcorr), calc_rms=True)
+                mask_hdu.header['CLIP_RMS'] = self.sun_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu, len(cube_pbcorr.data), calc_rms=True)
             elif method == 'dame':
-                mask_hdu.header['CLIP_RMS'] = self.dame_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu, len(emiscube_pbcorr), calc_rms=True)
+                mask_hdu.header['CLIP_RMS'] = self.dame_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu, len(cube_pbcorr.data), calc_rms=True)
             mask_hdu.header.comments['CLIP_RMS'] = 'rms [K km/s] for clipping'
 
             if not os.path.exists(self.savepath + self.galaxy):
@@ -149,7 +149,7 @@ class KILOGAS_clip:
         
         if self.verbose:
             print("CLIP APPLIED")
-        self.add_clipping_keywords(emiscube_uncorr_hdu, noisecube_uncorr_hdu, len(emiscube_pbcorr), clipped_hdu.header)
+        self.add_clipping_keywords(emiscube_uncorr_hdu, noisecube_uncorr_hdu, len(cube_pbcorr.data), clipped_hdu.header)
 
         if self.tosave:
             if self.verbose:
