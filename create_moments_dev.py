@@ -146,12 +146,17 @@ def calc_moms(cube, galaxy, glob_cat, savepath=None, units='K km/s', alpha_co=4.
     
     mom0[mom0 < 0] = np.nan
     
-    # Set redshift parameters needed for physical unit calculations
+    # Set redshift parameters needed for physical unit calculations & perform calculation
     glob_tab = fits.open(glob_cat)[1]        
-    z = glob_tab.data['Z'][glob_tab.data['KGAS_ID'] == int(galaxy.split('KGAS')[1])][0]
-    
+    z = glob_tab.data['Z'][glob_tab.data['KGAS_ID'] == int(galaxy.split('KGAS')[1])][0]    
     cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
     pc_to_pix = (cube.header['CDELT2'] * cosmo.kpc_proper_per_arcmin(z).value * 60 * 1000) ** 2
+
+    # Correct for inclination by dividing by b/a
+    inc_table = fits.open('KGAS_global_master.fits')[1]
+    ba = inc_table.data['ba'][inc_table.data['KGID'] == int(galaxy.split('KGAS')[1])]
+    print(ba)
+    mom0 /= ba
     
     if units == 'Msol pc-2':
         mom0 *= alpha_co
@@ -396,9 +401,9 @@ def calc_peak_t(cube, savepath):
     peak_temp_hdu.writeto(savepath + 'peak_temp_k.fits', overwrite=True)
 
 
-def perform_moment_creation(path, targets, glob_cat):
+def perform_moment_creation(path, data_path, targets, glob_cat):
     
-    files = glob(path + '**/*subcube.fits')
+    files = glob(path + '**/*clipped_cube.fits')
     
     galaxies = list(set([f.split('/')[8].split('_')[0] for f in files]))
     
@@ -409,11 +414,11 @@ def perform_moment_creation(path, targets, glob_cat):
         
         print(galaxy)
         
-        cubes = glob(path + galaxy + '/*subcube.fits')
+        cubes = glob(path + galaxy + '/*clipped_cube.fits')
         
         for cube in cubes:
             
-            savepath = path + galaxy + '/' + cube.split('/')[-1].split('.fits')[0].split('expanded')[0]
+            savepath = path + galaxy + '/' + cube.split('/')[-1].split('.fits')[0].split('clipped')[0]
     
             cube_fits = fits.open(cube)[0]
     
@@ -423,13 +428,13 @@ def perform_moment_creation(path, targets, glob_cat):
             calc_moms(cube_fits, galaxy, glob_cat=glob_cat, savepath=savepath, units='Msol/pix', alpha_co=4.35, R21=0.7)
             calc_peak_t(cube_fits, savepath=savepath)
             
-            calc_uncs(cube_fits, path, galaxy, glob_cat=glob_cat, savepath=savepath, 
+            calc_uncs(cube_fits, data_path, galaxy, glob_cat=glob_cat, savepath=savepath, 
                       units='K km/s', alpha_co=4.35, R21=0.7)
-            calc_uncs(cube_fits, path, galaxy, glob_cat=glob_cat, savepath=savepath, 
+            calc_uncs(cube_fits, data_path, galaxy, glob_cat=glob_cat, savepath=savepath, 
                       units='K km/s pc^2', alpha_co=4.35, R21=0.7)
-            calc_uncs(cube_fits, path, galaxy, glob_cat=glob_cat, savepath=savepath, 
+            calc_uncs(cube_fits, data_path, galaxy, glob_cat=glob_cat, savepath=savepath, 
                       units='Msol pc-2', alpha_co=4.35, R21=0.7)
-            calc_uncs(cube_fits, path, galaxy, glob_cat=glob_cat, savepath=savepath, 
+            calc_uncs(cube_fits, data_path, galaxy, glob_cat=glob_cat, savepath=savepath, 
                       units='Msol/pix', alpha_co=4.35, R21=0.7)
 
 
@@ -438,6 +443,7 @@ if __name__ == '__main__':
     perform_moment_creation(path)
 
     
+
 
 
 

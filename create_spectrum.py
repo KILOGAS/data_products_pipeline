@@ -156,16 +156,17 @@ def get_all_spectra(read_path, save_path, targets, target_id, detected, chans2do
     
             cube_fits = fits.open(cube)[0]
     
-            #try:
-            spec, vel = make_spectrum(cube_fits, galaxy, start, stop, save_path, glob_cat=glob_cat, extra_chans=10, non_det=non_det)            
-            plot_spectrum(galaxy, spec, vel, extra_chans=0, savepath=save_path)
-            #except:
-            #    pass
+            try:
+                spec, vel = make_spectrum(cube_fits, galaxy, start, stop, save_path, glob_cat=glob_cat, extra_chans=10, non_det=non_det)            
+                plot_spectrum(galaxy, spec, vel, extra_chans=0, savepath=save_path)
+            except:
+                pass
         
 
 if __name__ == '__main__':
     path = '/mnt/ExtraSSD/ScienceProjects/KILOGAS/Code_Blake/'
     get_all_spectra(path)
+
 
 
 

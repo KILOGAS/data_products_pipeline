@@ -239,8 +239,8 @@ def perform_moment_imaging(glob_path, targets):
         
         path = glob_path + galaxy + '/'
         
-        #if os.path.exists(path + galaxy + '_Ico_K_kms-1.png'):
-        #    continue
+        if os.path.exists(path + galaxy + '_Ico_K_kms-1.png'):
+            continue
         
         mom0_K_kmss = glob(path + '*Ico*.fits')
         mom0_K_kms_pc2s = glob(path + '*Lco*.fits')
@@ -284,6 +284,7 @@ def perform_moment_imaging(glob_path, targets):
 if __name__ == '__main__':
     path = '/mnt/ExtraSSD/ScienceProjects/KILOGAS/Code_Blake/'
     perform_moment_imaging(path)
+
 
 
 

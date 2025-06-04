@@ -154,7 +154,7 @@ class KILOGAS_clip:
         if self.tosave:
             if self.verbose:
                 print("EMISSION CUBE SAVED")
-            clipped_hdu.writeto(self.savepath+self.galaxy+'/'+self.galaxy + '_expanded_pruned_subcube.fits', overwrite=True)
+            clipped_hdu.writeto(self.savepath+self.galaxy+'/'+self.galaxy + '_clipped_cube.fits', overwrite=True)
         
         return clipped_hdu, noisecube_pbcorr_hdu
         
@@ -559,3 +559,4 @@ class KILOGAS_clip:
             mask |= tempmask
 
         return mask
+
