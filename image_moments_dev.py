@@ -227,7 +227,7 @@ def moment_1_2(mom, galaxy, moment, path, savename=None):
         plt.savefig(path + galaxy + '/' + savename + '.pdf', bbox_inches='tight')
 
 
-def perform_moment_imaging(glob_path, targets):
+def perform_moment_imaging(glob_path, targets, spec_res=10):
     
     files = glob(glob_path + '**/')
     galaxies = list(set([f.split('/')[8].split('_')[0] for f in files]))
@@ -236,11 +236,14 @@ def perform_moment_imaging(glob_path, targets):
         
         if not galaxy in targets:
             continue
+
+        if spec_res == 10:
+            path = glob_path + galaxy + '/'
+        elif spec_res == 30:
+            path = glob_path + galaxy + '/30kms/'
         
-        path = glob_path + galaxy + '/'
-        
-        if os.path.exists(path + galaxy + '_Ico_K_kms-1.png'):
-            continue
+        #if os.path.exists(path + galaxy + '_Ico_K_kms-1.png'):
+        #    continue
         
         mom0_K_kmss = glob(path + '*Ico*.fits')
         mom0_K_kms_pc2s = glob(path + '*Lco*.fits')
