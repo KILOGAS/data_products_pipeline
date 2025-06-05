@@ -84,6 +84,7 @@ def make_spectrum(cube, galaxy, start, stop, path, glob_cat, extra_chans=10, non
         np.savetxt(path + galaxy + '/30kms/' + galaxy + '_spectrum.csv',
                    np.column_stack((spectrum, spectrum_velocities)),
                    delimiter=',', header=csv_header)
+        
     return spectrum, spectrum_velocities
 
 
@@ -155,16 +156,6 @@ def get_all_spectra(read_path, save_path, targets, target_id, detected, chans2do
         print("Creating spectrum for " + galaxy + ". \n")
         
         non_det = ~detected[detected_id == int(galaxy.split('KGAS')[1])]
-
-        if spec_res == 10:
-            start = clipping_chans[galaxy][0]
-            stop = clipping_chans[galaxy][1]
-        else:
-            start_v = clipping_vels[galaxy][0]
-            stop_v = clipping_vels[galaxy][1]
-            _, _, vel_array, _ = create_vel_array(cube)
-            start = np.argmin(abs(vel_array - start_v))
-            stop = np.argmin(abs(vel_array - stop_v))
              
         if not os.path.exists(save_path + galaxy):
             os.mkdir(save_path + galaxy)
@@ -181,9 +172,19 @@ def get_all_spectra(read_path, save_path, targets, target_id, detected, chans2do
             
         cube_fits = fits.open(cube)[0]
 
+        #if spec_res == 10:
+        #    start = clipping_chans[galaxy][0]
+        #    stop = clipping_chans[galaxy][1]
+        #else:
+        start_v = clipping_vels[galaxy][0]
+        stop_v = clipping_vels[galaxy][1]
+        _, _, vel_array, _ = create_vel_array(cube_fits)
+        start = np.argmin(abs(vel_array - start_v))
+        stop = np.argmin(abs(vel_array - stop_v))
+
         try:
             spec, vel = make_spectrum(cube_fits, galaxy, start, stop, save_path, glob_cat=glob_cat, 
-                                      extra_chans=10, non_det=non_det, spec_res=spec_res)   
+                                  extra_chans=10, non_det=non_det, spec_res=spec_res)   
             plot_spectrum(galaxy, spec, vel, extra_chans=0, savepath=save_path, spec_res=spec_res)
         except:
             pass

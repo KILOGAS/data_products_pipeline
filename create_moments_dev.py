@@ -401,11 +401,14 @@ def calc_peak_t(cube, savepath):
     peak_temp_hdu.writeto(savepath + 'peak_temp_k.fits', overwrite=True)
 
 
-def perform_moment_creation(path, data_path, targets, glob_cat):
-    
-    files = glob(path + '**/*clipped_cube.fits')
-    
-    galaxies = list(set([f.split('/')[8].split('_')[0] for f in files]))
+def perform_moment_creation(path, data_path, targets, glob_cat, spec_res=10):
+
+    if spec_res == 10:
+        files = glob(path + '**/*clipped_cube.fits')
+        galaxies = list(set([f.split('/')[8].split('_')[0] for f in files]))
+    elif spec_res == 30:
+        files = glob(path + '**/30kms/*clipped_cube.fits')
+        galaxies = list(set([f.split('/')[9].split('_')[0] for f in files]))
     
     for galaxy in galaxies:
         
@@ -413,12 +416,18 @@ def perform_moment_creation(path, data_path, targets, glob_cat):
             continue
         
         print(galaxy)
-        
-        cubes = glob(path + galaxy + '/*clipped_cube.fits')
+
+        if spec_res == 10:
+            cubes = glob(path + galaxy + '/*clipped_cube.fits')
+        elif spec_res == 30:
+            cubes = glob(path + galaxy + '/30kms/*clipped_cube.fits')
         
         for cube in cubes:
-            
-            savepath = path + galaxy + '/' + cube.split('/')[-1].split('.fits')[0].split('clipped')[0]
+
+            if spec_res == 10:
+                savepath = path + galaxy + '/' + cube.split('/')[-1].split('.fits')[0].split('clipped')[0]
+            elif spec_res == 30:
+                savepath = path + galaxy + '/30kms/' + cube.split('/')[-1].split('.fits')[0].split('clipped')[0]
     
             cube_fits = fits.open(cube)[0]
     

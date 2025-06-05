@@ -9,7 +9,7 @@ Some additional updates and changes, including removing most of the infrastructu
 Sun method testing as we are focused on the Dame+ 2011 smooth+clip method, which was implemented in the code by Tim Davis on April 17, 2025 and updated by Blake + Scott June 3, 2025.
 """
 
-def perform_smooth_and_clip(read_path, save_path, targets, chans2do, clear_save_directory=False):
+def perform_smooth_and_clip(read_path, save_path, targets, chans2do, kms=10):
 
     ## Libraries to import.
     from spectral_cube import SpectralCube
@@ -18,7 +18,6 @@ def perform_smooth_and_clip(read_path, save_path, targets, chans2do, clear_save_
     from astropy.table import Table
     import numpy as np
     import os
-    import shutil
     from create_moments_dev import create_vel_array
     
     ## Main functions which will be used for the smoothing and clipping.
@@ -53,20 +52,8 @@ def perform_smooth_and_clip(read_path, save_path, targets, chans2do, clear_save_
     verbose, save = False, True
 
     method='dame'
-    kms='10'
     
     for i,galaxy in enumerate(targets):
-
-        if clear_save_directory:
-            directory = os.path.join(save_path, galaxy)
-
-            for root, dirs, files in os.walk(directory, topdown=False):
-                for name in files:
-                    file_path = os.path.join(root, name)
-                    os.unlink(file_path)
-                for name in dirs:
-                    dir_path = os.path.join(root, name)
-                    shutil.rmtree(dir_path)
         
         ## get min/max channels of current target
         kgasid = int(galaxy[4:])
@@ -79,37 +66,37 @@ def perform_smooth_and_clip(read_path, save_path, targets, chans2do, clear_save_
             verbose = False
         
         try:
-            path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+kms+".0kmps_12m.image.pbcor.ifumatched.fits"
-            path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+kms+".0kmps_12m.image.ifumatched.fits"
+            path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_12m.image.pbcor.ifumatched.fits"
+            path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_12m.image.ifumatched.fits"
             cube = fits.open(path_pbcorr)[0]
         except:
             try:
-                path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+kms+".0kmps_7m+12m.image.pbcor.ifumatched.fits"
-                path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+kms+".0kmps_7m+12m.image.ifumatched.fits"
+                path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_7m+12m.image.pbcor.ifumatched.fits"
+                path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_7m+12m.image.ifumatched.fits"
                 cube = fits.open(path_pbcorr)[0]
             except:
                 try:
-                    path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+kms+".0kmps_12m.contsub.image.pbcor.ifumatched.fits"
-                    path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+kms+".0kmps_12m.contsub.image.ifumatched.fits"
+                    path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_12m.contsub.image.pbcor.ifumatched.fits"
+                    path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_12m.contsub.image.ifumatched.fits"
                     cube = fits.open(path_pbcorr)[0]
                 except:
-                    path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+kms+".0kmps_7m+12m.contsub.image.pbcor.ifumatched.fits"
-                    path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+kms+".0kmps_7m+12m.contsub.image.ifumatched.fits"
+                    path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_7m+12m.contsub.image.pbcor.ifumatched.fits"
+                    path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_7m+12m.contsub.image.ifumatched.fits"
                     cube = fits.open(path_pbcorr)[0]
 
         # If the spectral resolution is anything other than 10 km/s, calculate the start/stop channels corresponding to
         # the start/stop velocities in the "chans2do" table.
-        if kms == '10':
-            minchan, maxchan = df['minchan'][idx][0],df['maxchan'][idx][0]
-        else:
-            vminchan, vmaxchan = df['minchan_v'][idx][0],df['maxchan_v'][idx][0] 
-            _, _, vel_array, _ = create_vel_array(cube)
-            minchan = np.argmin(abs(vel_array - vminchan))
-            maxchan = np.argmin(abs(vel_array - vmaxchan))
+        #if kms == 10:
+        #    minchan, maxchan = df['minchan'][idx][0],df['maxchan'][idx][0]
+        #else:
+        vminchan, vmaxchan = df['minchan_v'][idx][0],df['maxchan_v'][idx][0] 
+        _, _, vel_array, _ = create_vel_array(cube)
+        minchan = np.argmin(abs(vel_array - vminchan))
+        maxchan = np.argmin(abs(vel_array - vmaxchan))
 
         ## do the smooth and clip
         kgasclip = KILOGAS_clip(galaxy, path_pbcorr, path_uncorr, minchan, maxchan,
-                            verbose, save, read_path, save_path, dame_method_params=dame_method_params)
+                            verbose, save, read_path, save_path, dame_method_params=dame_method_params, spec_res=kms)
         clipped_emiscube, clipped_noisecube = kgasclip.do_clip(method=method)
         
 
