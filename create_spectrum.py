@@ -86,12 +86,11 @@ def make_spectrum(cube, galaxy, start, stop, path, glob_cat, extra_chans=10, non
 def plot_spectrum(galaxy, spectrum, velocity, extra_chans=0, x_axis='velocity', 
              useclipped=False, savepath=None):
 
-
     fig, ax = plt.subplots(figsize=(7, 7))
 
     if x_axis == 'velocity':
         ax.plot(velocity, spectrum, color='k', drawstyle='steps')
-        x = np.arange(np.amin(velocity) - 100, np.amax(velocity) + 100, 1)
+        #x = np.arange(np.amin(velocity) - 100, np.amax(velocity) + 100, 1)
         ax.set_xlim(velocity[len(velocity) - 1] + extra_chans, velocity[0] - extra_chans)
         ax.set_xlabel(r'Velocity [km s$^{-1}$]')
     '''
@@ -149,18 +148,18 @@ def get_all_spectra(read_path, save_path, targets, target_id, detected, chans2do
              
         if not os.path.exists(save_path + galaxy):
             os.mkdir(save_path + galaxy)
+
+        #elif os.path.exists(save_path + galaxy + '/' + galaxy + '_spectrum.png'):
+        #    continue
         
-        cubes = glob(read_path + galaxy + '/*co2-1*image.pbcor*.fits')
-        
-        for cube in cubes:
-    
-            cube_fits = fits.open(cube)[0]
-    
-            try:
-                spec, vel = make_spectrum(cube_fits, galaxy, start, stop, save_path, glob_cat=glob_cat, extra_chans=10, non_det=non_det)            
-                plot_spectrum(galaxy, spec, vel, extra_chans=0, savepath=save_path)
-            except:
-                pass
+        cube = glob(read_path + galaxy + '/*co2-1_10.0kmps*image.pbcor*.fits')[0]
+        cube_fits = fits.open(cube)[0]
+
+        #try:
+        spec, vel = make_spectrum(cube_fits, galaxy, start, stop, save_path, glob_cat=glob_cat, extra_chans=10, non_det=non_det)   
+        plot_spectrum(galaxy, spec, vel, extra_chans=0, savepath=save_path)
+        #except:
+        #    pass
         
 
 if __name__ == '__main__':
