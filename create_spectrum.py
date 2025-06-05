@@ -11,7 +11,7 @@ def gauss(x, a, x0, sigma):
     return a * np.exp(-(x - x0) ** 2 / (2 * sigma ** 2))
 
 
-def make_spectrum(cube, galaxy, start, stop, path, glob_cat, extra_chans=10, non_det=False):
+def make_spectrum(cube, galaxy, start, stop, path, glob_cat, extra_chans=10, non_det=False, spec_res=10):
 
     _, _, vel_array_full, _ = create_vel_array(cube)
     
@@ -76,22 +76,25 @@ def make_spectrum(cube, galaxy, start, stop, path, glob_cat, extra_chans=10, non
 
     csv_header = 'Spectrum (K), Velocity (km/s)'
 
-    np.savetxt(path + galaxy + '/' + galaxy + '_spectrum.csv',
-               np.column_stack((spectrum, spectrum_velocities)),
-               delimiter=',', header=csv_header)
-
+    if spec_res == 10:
+        np.savetxt(path + galaxy + '/' + galaxy + '_spectrum.csv',
+                   np.column_stack((spectrum, spectrum_velocities)),
+                   delimiter=',', header=csv_header)
+    elif spec_res == 30:
+        np.savetxt(path + galaxy + '/30kms/' + galaxy + '_spectrum.csv',
+                   np.column_stack((spectrum, spectrum_velocities)),
+                   delimiter=',', header=csv_header)
     return spectrum, spectrum_velocities
 
 
 def plot_spectrum(galaxy, spectrum, velocity, extra_chans=0, x_axis='velocity', 
-             useclipped=False, savepath=None):
-
+             useclipped=False, savepath=None, spec_res=10):
 
     fig, ax = plt.subplots(figsize=(7, 7))
 
     if x_axis == 'velocity':
         ax.plot(velocity, spectrum, color='k', drawstyle='steps')
-        x = np.arange(np.amin(velocity) - 100, np.amax(velocity) + 100, 1)
+        #x = np.arange(np.amin(velocity) - 100, np.amax(velocity) + 100, 1)
         ax.set_xlim(velocity[len(velocity) - 1] + extra_chans, velocity[0] - extra_chans)
         ax.set_xlabel(r'Velocity [km s$^{-1}$]')
     '''
@@ -119,11 +122,15 @@ def plot_spectrum(galaxy, spectrum, velocity, extra_chans=0, x_axis='velocity',
     plt.tight_layout()
 
     if savepath:
-        plt.savefig(savepath + galaxy + '/' + galaxy + '_spectrum.png', bbox_inches='tight')
-        plt.savefig(savepath + galaxy + '/' + galaxy + '_spectrum.pdf', bbox_inches='tight')
+        if spec_res == 10:
+            plt.savefig(savepath + galaxy + '/' + galaxy + '_spectrum.png', bbox_inches='tight')
+            plt.savefig(savepath + galaxy + '/' + galaxy + '_spectrum.pdf', bbox_inches='tight')
+        elif spec_res == 30:
+            plt.savefig(savepath + galaxy + '/30kms/' + galaxy + '_spectrum.png', bbox_inches='tight')
+            plt.savefig(savepath + galaxy + '/30kms/' + galaxy + '_spectrum.pdf', bbox_inches='tight')
 
 
-def get_all_spectra(read_path, save_path, targets, target_id, detected, chans2do, glob_cat):
+def get_all_spectra(read_path, save_path, targets, target_id, detected, chans2do, glob_cat, spec_res=10):
     
     files = glob(read_path + '**/*co2-1*image.pbcor*.fits')
     
@@ -133,7 +140,10 @@ def get_all_spectra(read_path, save_path, targets, target_id, detected, chans2do
     KGAS_ID = clipping_table.data['KGAS_ID']
     minchan = clipping_table.data['minchan']
     maxchan = clipping_table.data['maxchan']
+    minchan_v = clipping_table.data['minchan_v']
+    maxchan_v = clipping_table.data['maxchan_v']
     clipping_chans = {'KGAS' + id.astype(str): [min, max] for id, min, max in zip(KGAS_ID, minchan, maxchan)}
+    clipping_vels = {'KGAS' + id.astype(str): [min, max] for id, min, max in zip(KGAS_ID, minchan_v, maxchan_v)}
     
     detected_id = target_id
     
@@ -141,26 +151,44 @@ def get_all_spectra(read_path, save_path, targets, target_id, detected, chans2do
         
         if not galaxy in targets:
             continue
+
+        print("Creating spectrum for " + galaxy + ". \n")
         
         non_det = ~detected[detected_id == int(galaxy.split('KGAS')[1])]
-        
-        start = clipping_chans[galaxy][0]
-        stop = clipping_chans[galaxy][1]
+
+        if spec_res == 10:
+            start = clipping_chans[galaxy][0]
+            stop = clipping_chans[galaxy][1]
+        else:
+            start_v = clipping_vels[galaxy][0]
+            stop_v = clipping_vels[galaxy][1]
+            _, _, vel_array, _ = create_vel_array(cube)
+            start = np.argmin(abs(vel_array - start_v))
+            stop = np.argmin(abs(vel_array - stop_v))
              
         if not os.path.exists(save_path + galaxy):
             os.mkdir(save_path + galaxy)
-        
-        cubes = glob(read_path + galaxy + '/*co2-1*image.pbcor*.fits')
-        
-        for cube in cubes:
-    
-            cube_fits = fits.open(cube)[0]
-    
-            try:
-                spec, vel = make_spectrum(cube_fits, galaxy, start, stop, save_path, glob_cat=glob_cat, extra_chans=10, non_det=non_det)            
-                plot_spectrum(galaxy, spec, vel, extra_chans=0, savepath=save_path)
-            except:
-                pass
+        #elif os.path.exists(save_path + galaxy + '/' + galaxy + '_spectrum.png'):
+        #    continue
+
+        if not os.path.exists(save_path + galaxy + '/30kms'):
+            os.mkdir(save_path + galaxy + '/30kms')
+
+        if spec_res == 10:
+            cube = glob(read_path + galaxy + '/*co2-1_10.0kmps*image.pbcor*.fits')[0]
+        elif spec_res == 30:
+            cube = glob(read_path + galaxy + '/*co2-1_30.0kmps*image.pbcor*.fits')[0]
+            
+        cube_fits = fits.open(cube)[0]
+
+        try:
+            spec, vel = make_spectrum(cube_fits, galaxy, start, stop, save_path, glob_cat=glob_cat, 
+                                      extra_chans=10, non_det=non_det, spec_res=spec_res)   
+            plot_spectrum(galaxy, spec, vel, extra_chans=0, savepath=save_path, spec_res=spec_res)
+        except:
+            pass
+
+    print("Done.")
         
 
 if __name__ == '__main__':
