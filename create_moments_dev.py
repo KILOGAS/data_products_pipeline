@@ -157,16 +157,16 @@ def calc_moms(cube, galaxy, glob_cat, savepath=None, units='K km/s', alpha_co=4.
         mom0 /= R21
         mom0 *= (1 + z)
         
+        # Correct for inclination by multiplying by b/a
+        inc_table = fits.open('KGAS_global_master.fits')[1]
+        ba = inc_table.data['ba'][inc_table.data['KGID'] == int(galaxy.split('KGAS')[1])]
+        mom0 *= ba
+        
     elif units == 'Msol/pix':
         mom0 *= alpha_co
         mom0 /= R21
         mom0 *= (1 + z)
         mom0 *= pc_to_pix
-
-        # Correct for inclination by multiplying by b/a
-        inc_table = fits.open('KGAS_global_master.fits')[1]
-        ba = inc_table.data['ba'][inc_table.data['KGID'] == int(galaxy.split('KGAS')[1])]
-        mom0 *= ba
     
     elif units == 'K km/s pc^2':
         mom0 *= pc_to_pix
@@ -321,6 +321,11 @@ def calc_uncs(cube, path, galaxy, glob_cat, savepath, units='K km/s', alpha_co=4
         mom0_uncertainty /= R21
         mom0_uncertainty *= (1 + z)
         #mom0_uncertainty *= 0.434 * (mom0_uncertainty / 10 ** mom0_hdu.data)
+
+        # Correct for inclination by multiplying by b/a
+        inc_table = fits.open('KGAS_global_master.fits')[1]
+        ba = inc_table.data['ba'][inc_table.data['KGID'] == int(galaxy.split('KGAS')[1])]
+        mom0_uncertainty *= ba
         
         mom0_uncertainty_hdu = fits.PrimaryHDU(mom0_uncertainty, mom0_hdu.header)
         mom0_uncertainty_hdu.header['BTYPE'] = 'mmol pc^-2 error'
