@@ -44,7 +44,7 @@ class KILOGAS_clip:
         self.spec_res = spec_res
 
         
-    def do_clip(self,method='dame'):
+    def do_clip(self, method='dame'):
         """
         Perform the clipping of the data cube, using either the Dame+11
         standard smooth and clip or the more complicated explanding mask
@@ -137,13 +137,20 @@ class KILOGAS_clip:
             # Adjust the header to match the velocity range used
             mask_hdu.header['CRVAL3'] += self.start * mask_hdu.header['CDELT3']
 
-            if not os.path.exists(self.savepath + self.galaxy):
-                os.mkdir(self.savepath + self.galaxy)
-                mask_hdu.writeto(self.savepath+self.galaxy+'/'+self.galaxy+'_mask_cube.fits', overwrite=True)
-            if self.spec_res == 30:
-                if not os.path.exists(self.savepath + self.galaxy + '/30kms'):
-                    os.mkdir(self.savepath + self.galaxy + '/30kms')
-                    mask_hdu.writeto(self.savepath+self.galaxy+'/30kms/'+self.galaxy+'_mask_cube.fits', overwrite=True) 
+            if self.spec_res == 10:
+                if not os.path.exists(self.savepath + 'by_galaxy/' + self.galaxy):
+                    os.mkdir(self.savepath + 'by_galaxy/' + self.galaxy)
+                    mask_hdu.writeto(self.savepath+self.galaxy+'/'+self.galaxy+'_mask_cube.fits', overwrite=True)
+                if not os.path.exists(self.savepath + 'by_product/cubes/'):
+                    os.mkdir(self.savepath + 'by_product/cubes/')
+                    mask_hdu.writeto(self.savepath + 'by_product/cubes/' + self.galaxy + '_mask_cube.fits', overwrite=True)
+            elif self.spec_res == 30:
+                if not os.path.exists(self.savepath + 'by_galaxy/' + self.galaxy + '/30kms'):
+                    os.mkdir(self.savepath + 'by_galaxy/' + self.galaxy + '/30kms')
+                mask_hdu.writeto(self.savepath + 'by_galaxy/' + self.galaxy + '/30kms/' + self.galaxy + '_mask_cube.fits', overwrite=True) 
+                if not os.path.exists(self.savepath + 'by_product/cubes/' + '30kms'):
+                    os.mkdir(self.savepath + 'by_product/cubes/' + '30kms')
+                mask_hdu.writeto(self.savepath + 'by_product/cubes/' + '30kms/' + self.galaxy + '_mask_cube.fits', overwrite=True)
 
         emiscube_pbcorr[mask == 0] = 0
         clipped_hdu = fits.PrimaryHDU(emiscube_pbcorr, cube_pbcorr.header)
@@ -159,9 +166,11 @@ class KILOGAS_clip:
             if self.verbose:
                 print("EMISSION CUBE SAVED")
             if self.spec_res == 10:
-                clipped_hdu.writeto(self.savepath+self.galaxy+'/'+self.galaxy + '_clipped_cube.fits', overwrite=True)
+                clipped_hdu.writeto(self.savepath+ 'by_galaxy/' + self.galaxy + '/' + self.galaxy + '_clipped_cube.fits', overwrite=True)
+                clipped_hdu.writeto(self.savepath+ 'by_product/cubes/' + self.galaxy + '_clipped_cube.fits', overwrite=True)
             elif self.spec_res == 30:
-                clipped_hdu.writeto(self.savepath+self.galaxy+'/30kms/'+self.galaxy + '_clipped_cube.fits', overwrite=True)
+                clipped_hdu.writeto(self.savepath+ 'by_galaxy/' + self.galaxy + '/30kms/' + self.galaxy + '_clipped_cube.fits', overwrite=True)
+                clipped_hdu.writeto(self.savepath+ 'by_product/cubes/30kms/' + self.galaxy + '_clipped_cube.fits', overwrite=True)
         
         return clipped_hdu, noisecube_pbcorr_hdu
         

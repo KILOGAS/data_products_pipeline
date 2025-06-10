@@ -90,7 +90,7 @@ def perform_smooth_and_clip(read_path, save_path, targets, chans2do, kms=10):
         #    minchan, maxchan = df['minchan'][idx][0],df['maxchan'][idx][0]
         #else:
         vminchan, vmaxchan = df['minchan_v'][idx][0],df['maxchan_v'][idx][0] 
-        _, _, vel_array, _ = create_vel_array(cube)
+        _, _, vel_array, _ = create_vel_array(galaxy, cube)
         minchan = np.argmin(abs(vel_array - vminchan))
         maxchan = np.argmin(abs(vel_array - vmaxchan))
 
