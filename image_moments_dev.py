@@ -14,7 +14,7 @@ from glob import glob
 import os
 
 
-def moment_zero(mom0, galaxy, path, savename=None, units='Jy/beam km/s', alpha_co=4.35, peak=False):
+def moment_zero(mom0, galaxy, path, spec_res=10, savename=None, units='Jy/beam km/s', alpha_co=4.35, peak=False):
 
     fig = plt.figure(figsize=(11, 8))
 
@@ -115,13 +115,21 @@ def moment_zero(mom0, galaxy, path, savename=None, units='Jy/beam km/s', alpha_c
     plt.tight_layout()
 
     if savename:
-        plt.savefig(path + savename + '.png', bbox_inches='tight')
-        plt.savefig(path + savename + '.pdf', bbox_inches='tight') 
+        if spec_res == 10:
+            plt.savefig(path + savename + '.png', bbox_inches='tight')
+            plt.savefig(path.split('by_galaxy')[0] + 'by_product/moment_maps/' + savename + '.png', bbox_inches='tight') 
+            plt.savefig(path + savename + '.pdf', bbox_inches='tight')
+            plt.savefig(path.split('by_galaxy')[0] + 'by_product/moment_maps/' + savename + '.pdf', bbox_inches='tight') 
+        elif spec_res == 30:            
+            plt.savefig(path + savename + '.png', bbox_inches='tight')
+            plt.savefig(path.split('by_galaxy')[0] + 'by_product/moment_maps/30kms/' + savename + '.png', bbox_inches='tight') 
+            plt.savefig(path + savename + '.pdf', bbox_inches='tight')
+            plt.savefig(path.split('by_galaxy')[0] + 'by_product/moment_maps/30kms/' + savename + '.pdf', bbox_inches='tight') 
 
 
-def moment_1_2(mom, galaxy, moment, path, savename=None):
+def moment_1_2(mom, galaxy, moment, path, spec_res=10, savename=None):
 
-    vel_array = np.load(path + '/' + galaxy + '/' + savename.split('_mom1')[0].split('_mom2')[0] + '_vel_array.npy')
+    vel_array = np.load(path + 'by_galaxy/' + galaxy + '/' + savename.split('_mom1')[0].split('_mom2')[0] + '_vel_array.npy')
     
     #sysvel = (sysvel + 5) // 10 * 10
 
@@ -221,15 +229,22 @@ def moment_1_2(mom, galaxy, moment, path, savename=None):
 
     #Make sure the axis labels don't fall off the figure
     plt.tight_layout()
-    
-    if savename:
-        plt.savefig(path + galaxy + '/' + savename + '.png', bbox_inches='tight')
-        plt.savefig(path + galaxy + '/' + savename + '.pdf', bbox_inches='tight')
 
+    if spec_res == 10:
+        plt.savefig(path + savename + '.png', bbox_inches='tight')
+        plt.savefig(path.split('by_galaxy')[0] + 'by_product/moment_maps/' + savename + '.png', bbox_inches='tight') 
+        plt.savefig(path + savename + '.pdf', bbox_inches='tight')
+        plt.savefig(path.split('by_galaxy')[0] + 'by_product/moment_maps/' + savename + '.pdf', bbox_inches='tight') 
+    elif spec_res == 30:        
+        plt.savefig(path + 'by_galaxy/' + galaxy + '/' + savename + '.png', bbox_inches='tight')
+        plt.savefig(path.split('by_galaxy')[0] + 'by_product/moment_maps/30kms/' + savename + '.png', bbox_inches='tight') 
+        plt.savefig(path + 'by_galaxy/' + galaxy + '/' + savename + '.pdf', bbox_inches='tight')
+        plt.savefig(path.split('by_galaxy')[0] + 'by_product/moment_maps/30kms/' + savename + '.pdf', bbox_inches='tight') 
+        
 
 def perform_moment_imaging(glob_path, targets, spec_res=10):
     
-    files = glob(glob_path + '**/')
+    files = glob(glob_path + 'by_galaxy/' + '**/')
     galaxies = list(set([f.split('/')[8].split('_')[0] for f in files]))
     
     for galaxy in galaxies:
@@ -238,9 +253,9 @@ def perform_moment_imaging(glob_path, targets, spec_res=10):
             continue
 
         if spec_res == 10:
-            path = glob_path + galaxy + '/'
+            path = glob_path + 'by_galaxy/' + galaxy + '/'
         elif spec_res == 30:
-            path = glob_path + galaxy + '/30kms/'
+            path = glob_path + 'by_galaxy/' + galaxy + '/30kms/'
         
         #if os.path.exists(path + galaxy + '_Ico_K_kms-1.png'):
         #    continue
@@ -254,35 +269,35 @@ def perform_moment_imaging(glob_path, targets, spec_res=10):
         mom1s = glob(path + '*mom1*.fits')
         mom2s = glob(path + '*mom2*.fits')
         
-        try:
+        #try:
         
-            for mom0 in mom0_K_kmss:
+        for mom0 in mom0_K_kmss:
+            moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
+                        savename=mom0.split('/')[-1].split('.fits')[0], 
+                        spec_res=spec_res, units='K km/s', alpha_co=4.35, peak=False)
+            for mom0 in mom0_K_kms_pc2s:
                 moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
                             savename=mom0.split('/')[-1].split('.fits')[0], 
-                            units='K km/s', alpha_co=4.35, peak=False)
-                for mom0 in mom0_K_kms_pc2s:
-                    moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
-                                savename=mom0.split('/')[-1].split('.fits')[0], 
-                                units='K km/s pc^2', alpha_co=4.35, peak=False)
-                for mom0 in mom0_Msol_pc2:
-                    moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
-                                savename=mom0.split('/')[-1].split('.fits')[0], 
-                                units='Msol pc-2', alpha_co=4.35, peak=False)
-                for mom0 in mom0_Msol_pix:
-                    moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
-                                savename=mom0.split('/')[-1].split('.fits')[0], 
-                                units='Msol/pix', alpha_co=4.35, peak=False)
-                for peakT in peakTs:
-                    moment_zero(fits.open(peakT)[0], galaxy=galaxy, path=path, 
-                                savename=peakT.split('/')[-1].split('.fits')[0], 
-                                peak=True)
-                for mom1 in mom1s:
-                    moment_1_2(fits.open(mom1)[0], savename=mom1.split('/')[-1].split('.fits')[0], galaxy=galaxy, moment=1, path=glob_path)
-                for mom2 in mom2s:
-                    moment_1_2(fits.open(mom2)[0], savename=mom2.split('/')[-1].split('.fits')[0], galaxy=galaxy, moment=2, path=glob_path)
+                            spec_res=spec_res, units='K km/s pc^2', alpha_co=4.35, peak=False)
+            for mom0 in mom0_Msol_pc2:
+                moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
+                            savename=mom0.split('/')[-1].split('.fits')[0], 
+                            spec_res=spec_res, units='Msol pc-2', alpha_co=4.35, peak=False)
+            for mom0 in mom0_Msol_pix:
+                moment_zero(fits.open(mom0)[0], galaxy=galaxy, path=path, 
+                            savename=mom0.split('/')[-1].split('.fits')[0], 
+                            spec_res=spec_res, units='Msol/pix', alpha_co=4.35, peak=False)
+            for peakT in peakTs:
+                moment_zero(fits.open(peakT)[0], galaxy=galaxy, path=path, 
+                            savename=peakT.split('/')[-1].split('.fits')[0], 
+                            spec_res=spec_res, peak=True)
+            for mom1 in mom1s:
+                moment_1_2(fits.open(mom1)[0], savename=mom1.split('/')[-1].split('.fits')[0], galaxy=galaxy, moment=1, path=glob_path, spec_res=spec_res)
+            for mom2 in mom2s:
+                moment_1_2(fits.open(mom2)[0], savename=mom2.split('/')[-1].split('.fits')[0], galaxy=galaxy, moment=2, path=glob_path, spec_res=spec_res)
                 
-        except:
-            print(galaxy)
+        #except:
+        #    print(galaxy)
 
 if __name__ == '__main__':
     path = '/mnt/ExtraSSD/ScienceProjects/KILOGAS/Code_Blake/'
