@@ -140,10 +140,10 @@ class KILOGAS_clip:
             if self.spec_res == 10:
                 if not os.path.exists(self.savepath + 'by_galaxy/' + self.galaxy):
                     os.mkdir(self.savepath + 'by_galaxy/' + self.galaxy)
-                    mask_hdu.writeto(self.savepath+self.galaxy+'/'+self.galaxy+'_mask_cube.fits', overwrite=True)
+                mask_hdu.writeto(self.savepath + 'by_galaxy/'+self.galaxy+'/'+self.galaxy+'_mask_cube.fits', overwrite=True)
                 if not os.path.exists(self.savepath + 'by_product/cubes/'):
                     os.mkdir(self.savepath + 'by_product/cubes/')
-                    mask_hdu.writeto(self.savepath + 'by_product/cubes/' + self.galaxy + '_mask_cube.fits', overwrite=True)
+                mask_hdu.writeto(self.savepath + 'by_product/cubes/' + self.galaxy + '_mask_cube.fits', overwrite=True)
             elif self.spec_res == 30:
                 if not os.path.exists(self.savepath + 'by_galaxy/' + self.galaxy + '/30kms'):
                     os.mkdir(self.savepath + 'by_galaxy/' + self.galaxy + '/30kms')
@@ -194,7 +194,7 @@ class KILOGAS_clip:
             print("READ .FITS")
 
         cube_pbcorr = fits.open(self.path_pbcorr)[0]
-        cube_uncorr = fits.open(self.path_uncorr)[0]
+        cube_uncorr = fits.open(self.path_uncorr)[0]            
 
         # If the first and last channels consist of nans only, remove them
         spectrum_pbcorr = np.nansum(cube_pbcorr.data, axis=(1, 2))
