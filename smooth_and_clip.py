@@ -80,9 +80,19 @@ def perform_smooth_and_clip(read_path, save_path, targets, chans2do, kms=10):
                     path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_12m.contsub.image.ifumatched.fits"
                     cube = fits.open(path_pbcorr)[0]
                 except:
-                    path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_7m+12m.contsub.image.pbcor.ifumatched.fits"
-                    path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_7m+12m.contsub.image.ifumatched.fits"
-                    cube = fits.open(path_pbcorr)[0]
+                    try:
+                        path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_7m+12m.contsub.image.pbcor.ifumatched.fits"
+                        path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_7m+12m.contsub.image.ifumatched.fits"
+                        cube = fits.open(path_pbcorr)[0]
+                    except:
+                        print('30 km/s cube not available for ' + galaxy + '. \n')
+                        continue
+
+        try:
+            fits.open(path_uncorr)
+        except:
+            print('Uncorrected cube not available for ' + galaxy + '. \n')
+            continue
 
         # If the spectral resolution is anything other than 10 km/s, calculate the start/stop channels corresponding to
         # the start/stop velocities in the "chans2do" table.

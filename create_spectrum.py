@@ -170,7 +170,7 @@ def get_all_spectra(read_path, save_path, targets, target_id, detected, chans2do
         if spec_res == 10:
             if not os.path.exists(save_path + 'by_galaxy/' + galaxy):
                 os.mkdir(save_path + galaxy)
-            if not os.path.exists(save_path + 'by_galaxy/' + 'by_product/spectrum'):
+            if not os.path.exists(save_path + 'by_product/spectrum'):
                 os.mkdir(save_path + 'by_product/spectrum')
         elif spec_res == 30:  
             if not os.path.exists(save_path + 'by_galaxy/' + galaxy + '/30kms'):
@@ -195,12 +195,12 @@ def get_all_spectra(read_path, save_path, targets, target_id, detected, chans2do
         start = np.argmin(abs(vel_array - start_v))
         stop = np.argmin(abs(vel_array - stop_v))
 
-        #try:
-        spec, vel = make_spectrum(cube_fits, galaxy, start, stop, save_path, glob_cat=glob_cat, 
-                              extra_chans=10, non_det=non_det, spec_res=spec_res)   
-        plot_spectrum(galaxy, spec, vel, extra_chans=0, savepath=save_path, spec_res=spec_res)
-        #except:
-        #    pass
+        try:
+            spec, vel = make_spectrum(cube_fits, galaxy, start, stop, save_path, glob_cat=glob_cat, 
+                                  extra_chans=10, non_det=non_det, spec_res=spec_res)   
+            plot_spectrum(galaxy, spec, vel, extra_chans=0, savepath=save_path, spec_res=spec_res)
+        except:
+            pass
 
     print("Done.")
         
