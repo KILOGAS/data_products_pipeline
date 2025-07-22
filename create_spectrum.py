@@ -77,12 +77,12 @@ def make_spectrum(cube, galaxy, start, stop, path, glob_cat, extra_chans=10, non
     csv_header = 'Spectrum (K), Velocity (km/s)'
 
     if spec_res == 10:
-        np.savetxt(path + 'by_galaxy/' + galaxy + '/' + galaxy + '_spectrum.csv',
+        np.savetxt(path + 'by_galaxy/' + galaxy + '/10kms/' + galaxy + '_spectrum.csv',
                    np.column_stack((spectrum, spectrum_velocities)),
                    delimiter=',', header=csv_header)
-        np.savetxt(path + 'by_product/spectrum/' + galaxy + '_spectrum.csv',
-            np.column_stack((spectrum, spectrum_velocities)),
-            delimiter=',', header=csv_header)
+        np.savetxt(path + 'by_product/spectrum/10kms/' + galaxy + '_spectrum.csv',
+           np.column_stack((spectrum, spectrum_velocities)),
+           delimiter=',', header=csv_header)
     elif spec_res == 30:
         np.savetxt(path + 'by_galaxy/' + galaxy + '/30kms/' + galaxy + '_spectrum.csv',
                    np.column_stack((spectrum, spectrum_velocities)),
@@ -130,10 +130,10 @@ def plot_spectrum(galaxy, spectrum, velocity, extra_chans=0, x_axis='velocity',
 
     if savepath:
         if spec_res == 10:
-            plt.savefig(savepath + 'by_galaxy/' + galaxy + '/' + galaxy + '_spectrum.png', bbox_inches='tight')
-            plt.savefig(savepath + 'by_galaxy/' + galaxy + '/' + galaxy + '_spectrum.pdf', bbox_inches='tight')
-            plt.savefig(savepath + 'by_product/spectrum/' + galaxy + '_spectrum.png', bbox_inches='tight')
-            plt.savefig(savepath + 'by_product/spectrum/' + galaxy + '_spectrum.pdf', bbox_inches='tight')
+            plt.savefig(savepath + 'by_galaxy/' + galaxy + '/10kms/' + galaxy + '_spectrum.png', bbox_inches='tight')
+            plt.savefig(savepath + 'by_galaxy/' + galaxy + '/10kms/' + galaxy + '_spectrum.pdf', bbox_inches='tight')
+            plt.savefig(savepath + 'by_product/spectrum/10kms/' + galaxy + '_spectrum.png', bbox_inches='tight')
+            plt.savefig(savepath + 'by_product/spectrum/10kms/' + galaxy + '_spectrum.pdf', bbox_inches='tight')
         elif spec_res == 30:
             plt.savefig(savepath + 'by_galaxy/' + galaxy + '/30kms/' + galaxy + '_spectrum.png', bbox_inches='tight')
             plt.savefig(savepath + 'by_galaxy/' + galaxy + '/30kms/' + galaxy + '_spectrum.pdf', bbox_inches='tight')
@@ -169,10 +169,18 @@ def get_all_spectra(read_path, save_path, targets, target_id, detected, chans2do
 
         if spec_res == 10:
             if not os.path.exists(save_path + 'by_galaxy/' + galaxy):
-                os.mkdir(save_path + galaxy)
+                os.mkdir(save_path + 'by_galaxy/' + galaxy)
+            if not os.path.exists(save_path + 'by_product/spectrum'):
+                os.mkdir(save_path + 'by_product/spectrum')            
+            if not os.path.exists(save_path + 'by_galaxy/' + galaxy + '/10kms'):
+                os.mkdir(save_path + 'by_galaxy/' + galaxy + '/10kms')
+            if not os.path.exists(save_path + 'by_product/spectrum/10kms'):
+                os.mkdir(save_path + 'by_product/spectrum/10kms')
+        elif spec_res == 30:  
+            if not os.path.exists(save_path + 'by_galaxy/' + galaxy):
+                os.mkdir(save_path + 'by_galaxy/' + galaxy)
             if not os.path.exists(save_path + 'by_product/spectrum'):
                 os.mkdir(save_path + 'by_product/spectrum')
-        elif spec_res == 30:  
             if not os.path.exists(save_path + 'by_galaxy/' + galaxy + '/30kms'):
                 os.mkdir(save_path + 'by_galaxy/' + galaxy + '/30kms')
             if not os.path.exists(save_path + 'by_product/spectrum/30kms'):

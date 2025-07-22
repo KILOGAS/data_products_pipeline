@@ -18,7 +18,7 @@ import os
 
 class KILOGAS_clip:
 
-    def __init__(self, gal, path_pbcorr, path_uncorr, start, stop, verbose, save, read_path, save_path,sun_method_params=[3,3,2,2, None, 0.1, None, None, None],dame_method_params=[5,1.5,4,1], spec_res=10):
+    def __init__(self, gal, path_pbcorr, path_uncorr, start, stop, verbose, save, read_path, save_path,sun_method_params=[3,3,2,2, None, 0.1, None, None, None],dame_method_params=[5,1.5,4,1], spec_res=10, pb_thresh=40):
         self.galaxy = gal
         self.path_pbcorr = path_pbcorr
         self.path_uncorr = path_uncorr
@@ -42,6 +42,7 @@ class KILOGAS_clip:
         self.readpath = read_path
         self.savepath = save_path
         self.spec_res = spec_res
+        self.pb_thresh = pb_thresh
 
         
     def do_clip(self, method='dame'):
@@ -100,6 +101,9 @@ class KILOGAS_clip:
             mask = self.sun_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu, len(cube_pbcorr.data))
         elif method == 'dame':
             mask = self.dame_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu, len(cube_pbcorr.data))
+
+        # Mask spaxels under a certain threshold of pb response
+        mask = self.mask_pb(mask, emiscube_pbcorr, emiscube_uncorr)
             
         mask_hdu = fits.PrimaryHDU(mask.astype(int), cube_pbcorr.header)
 
@@ -140,14 +144,24 @@ class KILOGAS_clip:
             if self.spec_res == 10:
                 if not os.path.exists(self.savepath + 'by_galaxy/' + self.galaxy):
                     os.mkdir(self.savepath + 'by_galaxy/' + self.galaxy)
-                mask_hdu.writeto(self.savepath + 'by_galaxy/'+self.galaxy+'/'+self.galaxy+'_mask_cube.fits', overwrite=True)
-                if not os.path.exists(self.savepath + 'by_product/cubes/'):
-                    os.mkdir(self.savepath + 'by_product/cubes/')
-                mask_hdu.writeto(self.savepath + 'by_product/cubes/' + self.galaxy + '_mask_cube.fits', overwrite=True)
+                if not os.path.exists(self.savepath + 'by_galaxy/' + self.galaxy + '/10kms'):
+                    os.mkdir(self.savepath + 'by_galaxy/' + self.galaxy + '/10kms')
+                mask_hdu.writeto(self.savepath + 'by_galaxy/' + self.galaxy + '/10kms/' + self.galaxy + '_mask_cube.fits', overwrite=True) 
+
+                if not os.path.exists(self.savepath + 'by_product/cubes'):
+                    os.mkdir(self.savepath + 'by_product/cubes')
+                if not os.path.exists(self.savepath + 'by_product/cubes/' + '10kms'):
+                    os.mkdir(self.savepath + 'by_product/cubes/' + '10kms')
+                mask_hdu.writeto(self.savepath + 'by_product/cubes/' + '10kms/' + self.galaxy + '_mask_cube.fits', overwrite=True)
             elif self.spec_res == 30:
+                if not os.path.exists(self.savepath + 'by_galaxy/' + self.galaxy):
+                    os.mkdir(self.savepath + 'by_galaxy/' + self.galaxy)
                 if not os.path.exists(self.savepath + 'by_galaxy/' + self.galaxy + '/30kms'):
                     os.mkdir(self.savepath + 'by_galaxy/' + self.galaxy + '/30kms')
                 mask_hdu.writeto(self.savepath + 'by_galaxy/' + self.galaxy + '/30kms/' + self.galaxy + '_mask_cube.fits', overwrite=True) 
+
+                if not os.path.exists(self.savepath + 'by_product/cubes'):
+                    os.mkdir(self.savepath + 'by_product/cubes')
                 if not os.path.exists(self.savepath + 'by_product/cubes/' + '30kms'):
                     os.mkdir(self.savepath + 'by_product/cubes/' + '30kms')
                 mask_hdu.writeto(self.savepath + 'by_product/cubes/' + '30kms/' + self.galaxy + '_mask_cube.fits', overwrite=True)
@@ -166,8 +180,8 @@ class KILOGAS_clip:
             if self.verbose:
                 print("EMISSION CUBE SAVED")
             if self.spec_res == 10:
-                clipped_hdu.writeto(self.savepath+ 'by_galaxy/' + self.galaxy + '/' + self.galaxy + '_clipped_cube.fits', overwrite=True)
-                clipped_hdu.writeto(self.savepath+ 'by_product/cubes/' + self.galaxy + '_clipped_cube.fits', overwrite=True)
+                clipped_hdu.writeto(self.savepath+ 'by_galaxy/' + self.galaxy + '/10kms/' + self.galaxy + '_clipped_cube.fits', overwrite=True)
+                clipped_hdu.writeto(self.savepath+ 'by_product/cubes/10kms/' + self.galaxy + '_clipped_cube.fits', overwrite=True)
             elif self.spec_res == 30:
                 clipped_hdu.writeto(self.savepath+ 'by_galaxy/' + self.galaxy + '/30kms/' + self.galaxy + '_clipped_cube.fits', overwrite=True)
                 clipped_hdu.writeto(self.savepath+ 'by_product/cubes/30kms/' + self.galaxy + '_clipped_cube.fits', overwrite=True)
@@ -575,5 +589,22 @@ class KILOGAS_clip:
             mask |= tempmask
 
         return mask
+
+
+    def mask_pb(self, mask, cube_pbcorr, cube_uncorr):
+
+        # Mask spaxels below a certain threshold of the pb response
+        pb_cube = cube_pbcorr.copy()
+        pb_cube = cube_uncorr / cube_pbcorr
+        mask[pb_cube < self.pb_thresh / 100] = 0
+        
+        return mask
+        
+        
+
+
+
+
+    
 
 
