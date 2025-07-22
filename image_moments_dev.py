@@ -117,9 +117,9 @@ def moment_zero(mom0, galaxy, path, spec_res=10, savename=None, units='Jy/beam k
     if savename:
         if spec_res == 10:
             plt.savefig(path + savename + '.png', bbox_inches='tight')
-            plt.savefig(path.split('by_galaxy')[0] + 'by_product/moment_maps/' + savename + '.png', bbox_inches='tight') 
+            plt.savefig(path.split('by_galaxy')[0] + 'by_product/moment_maps/10kms/' + savename + '.png', bbox_inches='tight') 
             plt.savefig(path + savename + '.pdf', bbox_inches='tight')
-            plt.savefig(path.split('by_galaxy')[0] + 'by_product/moment_maps/' + savename + '.pdf', bbox_inches='tight') 
+            plt.savefig(path.split('by_galaxy')[0] + 'by_product/moment_maps/10kms/' + savename + '.pdf', bbox_inches='tight') 
         elif spec_res == 30:          
             plt.savefig(path + savename + '.png', bbox_inches='tight')
             plt.savefig(path.split('by_galaxy')[0] + 'by_product/moment_maps/30kms/' + savename + '.png', bbox_inches='tight') 
@@ -232,9 +232,9 @@ def moment_1_2(mom, galaxy, moment, path, spec_res=10, savename=None):
 
     if spec_res == 10:        
         plt.savefig(path + 'by_galaxy/' + galaxy + '/' + savename + '.png', bbox_inches='tight')
-        plt.savefig(path + 'by_product/moment_maps/' + savename + '.png', bbox_inches='tight') 
+        plt.savefig(path + 'by_product/moment_maps/10kms/' + savename + '.png', bbox_inches='tight') 
         plt.savefig(path + 'by_galaxy/' + galaxy + '/' + savename + '.pdf', bbox_inches='tight')
-        plt.savefig(path + 'by_product/moment_maps/' + savename + '.pdf', bbox_inches='tight') 
+        plt.savefig(path + 'by_product/moment_maps/10kms/' + savename + '.pdf', bbox_inches='tight') 
     elif spec_res == 30:       
         plt.savefig(path + 'by_galaxy/' + galaxy + '/' + savename + '.png', bbox_inches='tight')
         plt.savefig(path + 'by_product/moment_maps/30kms/' + savename + '.png', bbox_inches='tight') 
@@ -253,7 +253,7 @@ def perform_moment_imaging(glob_path, targets, spec_res=10):
             continue
 
         if spec_res == 10:
-            path = glob_path + 'by_galaxy/' + galaxy + '/'
+            path = glob_path + 'by_galaxy/' + galaxy + '/10kms/'
         elif spec_res == 30:
             path = glob_path + 'by_galaxy/' + galaxy + '/30kms/'
         

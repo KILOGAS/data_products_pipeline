@@ -97,10 +97,12 @@ def create_vel_array(galaxy, cube, spec_res=10, savepath=None):
     
     if savepath:
         if spec_res == 10:
-            np.save(savepath + 'by_galaxy/' + galaxy + '/' + galaxy + '_vel_array.npy', vel_array)
+            np.save(savepath + 'by_galaxy/' + galaxy + '/10kms/' + galaxy + '_vel_array.npy', vel_array)
             if not os.path.exists(savepath + 'by_product/spectrum'):
                 os.mkdir(savepath + 'by_product/spectrum')
-            np.save(savepath + 'by_product/spectrum/' + galaxy + '_vel_array.npy', vel_array)
+            if not os.path.exists(savepath + 'by_product/spectrum/10kms'):
+                os.mkdir(savepath + 'by_product/spectrum/10kms')
+            np.save(savepath + 'by_product/spectrum/10kms/' + galaxy + '_vel_array.npy', vel_array)
         elif spec_res == 30:
             np.save(savepath + 'by_galaxy/' + galaxy + '/30kms/' + galaxy + '_vel_array.npy', vel_array)
             if not os.path.exists(savepath + 'by_product/spectrum'):
@@ -249,25 +251,26 @@ def calc_moms(cube, galaxy, glob_cat, spec_res=10, savepath=None, units='K km/s'
         if spec_res == 10:
             if not os.path.exists(savepath + 'by_product/moment_maps'):
                 os.mkdir(savepath + 'by_product/moment_maps')
-            
+            if not os.path.exists(savepath + 'by_product/moment_maps/10kms'):
+                os.mkdir(savepath + 'by_product/moment_maps/10kms')            
             if units == 'K km/s':
-                mom0_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/' + galaxy + '_Ico_K_kms-1.fits', overwrite=True)
-                mom0_hdu.writeto(savepath + 'by_product/moment_maps/' + galaxy + '_Ico_K_kms-1.fits', overwrite=True)
+                mom0_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/10kms/' + galaxy + '_Ico_K_kms-1.fits', overwrite=True)
+                mom0_hdu.writeto(savepath + 'by_product/moment_maps/10kms/' + galaxy + '_Ico_K_kms-1.fits', overwrite=True)
             elif units == 'K km/s pc^2':
-                mom0_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/' + galaxy + '_Lco_K_kms-1_pc2.fits', overwrite=True)
-                mom0_hdu.writeto(savepath + 'by_product/moment_maps/' + galaxy + '_Lco_K_kms-1_pc2.fits', overwrite=True)
+                mom0_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/10kms/' + galaxy + '_Lco_K_kms-1_pc2.fits', overwrite=True)
+                mom0_hdu.writeto(savepath + 'by_product/moment_maps/10kms/' + galaxy + '_Lco_K_kms-1_pc2.fits', overwrite=True)
             elif units == 'Msol pc-2':
-                mom0_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/' + galaxy + '_mmol_pc-2.fits', overwrite=True)
-                mom0_hdu.writeto(savepath + 'by_product/moment_maps/' + galaxy + '_mmol_pc-2.fits', overwrite=True)
+                mom0_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/10kms/' + galaxy + '_mmol_pc-2.fits', overwrite=True)
+                mom0_hdu.writeto(savepath + 'by_product/moment_maps/10kms/' + galaxy + '_mmol_pc-2.fits', overwrite=True)
             elif units == 'Msol/pix':
-                mom0_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/' + galaxy + '_mmol_pix-1.fits', overwrite=True)
-                mom0_hdu.writeto(savepath + 'by_product/moment_maps/' + galaxy + '_mmol_pix-1.fits', overwrite=True)
+                mom0_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/10kms/' + galaxy + '_mmol_pix-1.fits', overwrite=True)
+                mom0_hdu.writeto(savepath + 'by_product/moment_maps/10kms/' + galaxy + '_mmol_pix-1.fits', overwrite=True)
                 
-            mom1_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/' + galaxy + '_mom1.fits', overwrite=True)
-            mom1_hdu.writeto(savepath + 'by_product/moment_maps/' + galaxy + '_mom1.fits', overwrite=True)
+            mom1_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/10kms/' + galaxy + '_mom1.fits', overwrite=True)
+            mom1_hdu.writeto(savepath + 'by_product/moment_maps/10kms/' + galaxy + '_mom1.fits', overwrite=True)
             
-            mom2_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/' + galaxy + '_mom2.fits', overwrite=True)
-            mom2_hdu.writeto(savepath + 'by_product/moment_maps/' + galaxy + '_mom2.fits', overwrite=True)
+            mom2_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/10kms/' + galaxy + '_mom2.fits', overwrite=True)
+            mom2_hdu.writeto(savepath + 'by_product/moment_maps/10kms/' + galaxy + '_mom2.fits', overwrite=True)
 
         elif spec_res == 30:
             if not os.path.exists(savepath + 'by_product/moment_maps'):
@@ -381,8 +384,8 @@ def calc_uncs(cube, path, galaxy, glob_cat, savepath, spec_res=10, units='K km/s
         mom0_hdu.header.comments['BUNIT'] = ''
 
         if spec_res == 10:
-            mom0_uncertainty_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/' + galaxy + '_mmol_pc-2_err.fits', overwrite=True)
-            mom0_uncertainty_hdu.writeto(savepath + 'by_product/moment_maps/' + galaxy + '_mmol_pc-2_err.fits', overwrite=True)
+            mom0_uncertainty_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/10kms/' + galaxy + '_mmol_pc-2_err.fits', overwrite=True)
+            mom0_uncertainty_hdu.writeto(savepath + 'by_product/moment_maps/10kms/' + galaxy + '_mmol_pc-2_err.fits', overwrite=True)
         elif spec_res == 30:
             mom0_uncertainty_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/30kms/' + galaxy + '_mmol_pc-2_err.fits', overwrite=True)
             mom0_uncertainty_hdu.writeto(savepath + 'by_product/moment_maps/30kms/' + galaxy + '_mmol_pc-2_err.fits', overwrite=True)
@@ -403,8 +406,8 @@ def calc_uncs(cube, path, galaxy, glob_cat, savepath, spec_res=10, units='K km/s
         mom0_hdu.header.comments['BUNIT'] = ''
 
         if spec_res == 10:
-            mom0_uncertainty_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/' + galaxy + '_mmol_pix-1_err.fits', overwrite=True)
-            mom0_uncertainty_hdu.writeto(savepath + 'by_product/moment_maps/' + galaxy + '_mmol_pix-1_err.fits', overwrite=True)
+            mom0_uncertainty_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/10kms/' + galaxy + '_mmol_pix-1_err.fits', overwrite=True)
+            mom0_uncertainty_hdu.writeto(savepath + 'by_product/moment_maps/10kms/' + galaxy + '_mmol_pix-1_err.fits', overwrite=True)
         elif spec_res == 30:
             mom0_uncertainty_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/30kms/' + galaxy + '_mmol_pix-1_err.fits', overwrite=True)
             mom0_uncertainty_hdu.writeto(savepath + 'by_product/moment_maps/30kms/' + galaxy + '_mmol_pix-1_err.fits', overwrite=True)
@@ -422,8 +425,8 @@ def calc_uncs(cube, path, galaxy, glob_cat, savepath, spec_res=10, units='K km/s
         mom0_hdu.header.comments['BUNIT'] = ''
 
         if spec_res == 10:
-            mom0_uncertainty_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/' + galaxy + '_Lco_K_kms-1_pc2_err.fits', overwrite=True)
-            mom0_uncertainty_hdu.writeto(savepath + 'by_product/moment_maps/' + galaxy + '_Lco_K_kms-1_pc2_err.fits', overwrite=True)
+            mom0_uncertainty_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/10kms/' + galaxy + '_Lco_K_kms-1_pc2_err.fits', overwrite=True)
+            mom0_uncertainty_hdu.writeto(savepath + 'by_product/moment_maps/10kms/' + galaxy + '_Lco_K_kms-1_pc2_err.fits', overwrite=True)
         elif spec_res == 30:
             mom0_uncertainty_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/30kms/' + galaxy + '_Lco_K_kms-1_pc2_err.fits', overwrite=True)
             mom0_uncertainty_hdu.writeto(savepath + 'by_product/moment_maps/30kms/' + galaxy + '_Lco_K_kms-1_pc2_err.fits', overwrite=True)
@@ -438,8 +441,8 @@ def calc_uncs(cube, path, galaxy, glob_cat, savepath, spec_res=10, units='K km/s
         mom0_hdu.header.comments['BUNIT'] = ''
 
         if spec_res == 10:
-            mom0_uncertainty_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/' + galaxy + '_Ico_K_kms-1_err.fits', overwrite=True)
-            mom0_uncertainty_hdu.writeto(savepath + 'by_product/moment_maps/' + galaxy + '_Ico_K_kms-1_err.fits', overwrite=True)
+            mom0_uncertainty_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/10kms/' + galaxy + '_Ico_K_kms-1_err.fits', overwrite=True)
+            mom0_uncertainty_hdu.writeto(savepath + 'by_product/moment_maps/10kms/' + galaxy + '_Ico_K_kms-1_err.fits', overwrite=True)
         elif spec_res == 30:
             mom0_uncertainty_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/30kms/' + galaxy + '_Ico_K_kms-1_err.fits', overwrite=True)
             mom0_uncertainty_hdu.writeto(savepath + 'by_product/moment_maps/30kms/' + galaxy + '_Ico_K_kms-1_err.fits', overwrite=True)
@@ -449,8 +452,8 @@ def calc_uncs(cube, path, galaxy, glob_cat, savepath, spec_res=10, units='K km/s
         SN_hdu.header.pop('BUNIT')
 
         if spec_res == 10:
-            SN_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/' + galaxy + '_mom0_SN.fits', overwrite=True)
-            SN_hdu.writeto(savepath + 'by_product/moment_maps/' + galaxy + '_mom0_SN.fits.fits', overwrite=True)
+            SN_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/10kms/' + galaxy + '_mom0_SN.fits', overwrite=True)
+            SN_hdu.writeto(savepath + 'by_product/moment_maps/10kms/' + galaxy + '_mom0_SN.fits', overwrite=True)
         elif spec_res == 30:
             SN_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/30kms/' + galaxy + '_mom0_SN.fits', overwrite=True)
             SN_hdu.writeto(savepath + 'by_product/moment_maps/30kms/' + galaxy + '_mom0_SN.fits', overwrite=True)
@@ -465,15 +468,15 @@ def calc_uncs(cube, path, galaxy, glob_cat, savepath, spec_res=10, units='K km/s
         mom2_uncertainty_hdu = fits.PrimaryHDU(mom2_uncertainty, mom2_hdu.header)
         
         if spec_res == 10:
-            mom1_uncertainty_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/' + galaxy + '_mom1_err.fits', overwrite=True)
-            mom1_uncertainty_hdu.writeto(savepath + 'by_product/moment_maps/' + galaxy + '_mom1_err.fits', overwrite=True)
+            mom1_uncertainty_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/10kms/' + galaxy + '_mom1_err.fits', overwrite=True)
+            mom1_uncertainty_hdu.writeto(savepath + 'by_product/moment_maps/10kms/' + galaxy + '_mom1_err.fits', overwrite=True)
         elif spec_res == 30:
             mom1_uncertainty_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/30kms/' + galaxy + '_mom1_err.fits', overwrite=True)
             mom1_uncertainty_hdu.writeto(savepath + 'by_product/moment_maps/30kms/' + galaxy + '_mom1_err.fits', overwrite=True)
         
         if spec_res == 10:
-            mom2_uncertainty_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/' + galaxy + '_mom2_err.fits', overwrite=True)
-            mom2_uncertainty_hdu.writeto(savepath + 'by_product/moment_maps/' + galaxy + '_mom2_err.fits', overwrite=True)
+            mom2_uncertainty_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/10kms/' + galaxy + '_mom2_err.fits', overwrite=True)
+            mom2_uncertainty_hdu.writeto(savepath + 'by_product/moment_maps/10kms/' + galaxy + '_mom2_err.fits', overwrite=True)
         elif spec_res == 30:
             mom2_uncertainty_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/30kms/' + galaxy + '_mom2_err.fits', overwrite=True)
             mom2_uncertainty_hdu.writeto(savepath + 'by_product/moment_maps/30kms/' + galaxy + '_mom2_err.fits', overwrite=True)
@@ -488,8 +491,9 @@ def calc_peak_t(cube, galaxy, spec_res=10, savepath=None):
     peak_temp_hdu.header['BUNIT'] = 'K'; peak_temp_hdu.header.comments['BUNIT'] = ''
 
     if spec_res == 10:
-        peak_temp_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/' + galaxy + '_peak_temp_k.fits', overwrite=True)
-        peak_temp_hdu.writeto(savepath + 'by_product/moment_maps/' + galaxy + '_peak_temp_k.fits', overwrite=True)
+        peak_temp_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/10kms/' + galaxy + '_peak_temp_k.fits', overwrite=True)
+        peak_temp_hdu.writeto(savepath + 'by_product/moment_maps/10kms/' + galaxy + '_peak_temp_k.fits', overwrite=True)
+
     elif spec_res == 30:
         peak_temp_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/30kms/' + galaxy + '_peak_temp_k.fits', overwrite=True)
         peak_temp_hdu.writeto(savepath + 'by_product/moment_maps/30kms/' + galaxy + '_peak_temp_k.fits', overwrite=True)
@@ -498,7 +502,7 @@ def calc_peak_t(cube, galaxy, spec_res=10, savepath=None):
 def perform_moment_creation(path, data_path, targets, glob_cat, spec_res=10):
 
     if spec_res == 10:
-        files = glob(path + 'by_galaxy/**/*clipped_cube.fits')
+        files = glob(path + 'by_galaxy/**/10kms/*clipped_cube.fits')
         galaxies = list(set([f.split('/')[8].split('_')[0] for f in files]))
 
     elif spec_res == 30:
@@ -513,7 +517,7 @@ def perform_moment_creation(path, data_path, targets, glob_cat, spec_res=10):
         print(galaxy)
 
         if spec_res == 10:
-            cubes = glob(path + 'by_galaxy/' + galaxy + '/*clipped_cube.fits')
+            cubes = glob(path + 'by_galaxy/' + galaxy + '/10kms/*clipped_cube.fits')
         elif spec_res == 30:
             cubes = glob(path + 'by_galaxy/' + galaxy + '/30kms/*clipped_cube.fits')
         

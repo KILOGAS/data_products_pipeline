@@ -9,7 +9,7 @@ Some additional updates and changes, including removing most of the infrastructu
 Sun method testing as we are focused on the Dame+ 2011 smooth+clip method, which was implemented in the code by Tim Davis on April 17, 2025 and updated by Blake + Scott June 3, 2025.
 """
 
-def perform_smooth_and_clip(read_path, save_path, targets, chans2do, kms=10):
+def perform_smooth_and_clip(read_path, save_path, targets, chans2do, kms=10, pb_thresh=40):
 
     ## Libraries to import.
     from spectral_cube import SpectralCube
@@ -48,6 +48,9 @@ def perform_smooth_and_clip(read_path, save_path, targets, chans2do, kms=10):
     #dame_method_params = [S/N clip, beam expand factor, channel expand factor, prune_by_fracbeam]
     ## Initial parameters implemented by Tim, dame_method_params=[4,1.5,4,(2/np.pi)]
     dame_method_params=[3,2,4,(2/np.pi)] ## New parameters tested by Blake for detecting more faint emission
+
+    # These galaxies should not be trimmed to 40% of the primary beam response
+    pb_exceptions = [28, 37, 61, 66, 70, 75, 82, 84, 154, 182, 188, 219, 223, 238, 239, 241, 334, 340, 426]
     
     verbose, save = False, True
 
@@ -94,6 +97,11 @@ def perform_smooth_and_clip(read_path, save_path, targets, chans2do, kms=10):
             print('Uncorrected cube not available for ' + galaxy + '. \n')
             continue
 
+        if kgasid in pb_exceptions:
+            pb_clip_thresh = 0
+        else:
+            pb_clip_thresh = pb_thresh
+
         # If the spectral resolution is anything other than 10 km/s, calculate the start/stop channels corresponding to
         # the start/stop velocities in the "chans2do" table.
         #if kms == 10:
@@ -106,7 +114,9 @@ def perform_smooth_and_clip(read_path, save_path, targets, chans2do, kms=10):
 
         ## do the smooth and clip
         kgasclip = KILOGAS_clip(galaxy, path_pbcorr, path_uncorr, minchan, maxchan,
-                            verbose, save, read_path, save_path, dame_method_params=dame_method_params, spec_res=kms)
+                                verbose, save, read_path, save_path, 
+                                dame_method_params=dame_method_params, spec_res=kms,
+                                pb_thresh=pb_clip_thresh)
         clipped_emiscube, clipped_noisecube = kgasclip.do_clip(method=method)
         
 
