@@ -18,7 +18,7 @@ import os
 
 class KILOGAS_clip:
 
-    def __init__(self, gal, path_pbcorr, path_uncorr, start, stop, verbose, save, read_path, save_path,sun_method_params=[3,3,2,2, None, 0.1, None, None, None],dame_method_params=[5,1.5,4,1], spec_res=10, pb_thresh=40):
+    def __init__(self, gal, path_pbcorr, path_uncorr, start, stop, verbose, save, read_path, save_path,sun_method_params=[3,3,2,2, None, 0.1, None, None, None],dame_method_params=[5,1.5,4,1], spec_res=10, pb_thresh=40, prune_by_npix=None):
         self.galaxy = gal
         self.path_pbcorr = path_pbcorr
         self.path_uncorr = path_uncorr
@@ -28,7 +28,7 @@ class KILOGAS_clip:
         self.cliplevel_low = sun_method_params[1]
         self.nchan_high = sun_method_params[2]
         self.cliplevel_high = sun_method_params[3]
-        self.prune_by_npix = sun_method_params[4]
+        self.prune_by_npix = prune_by_npix
         self.prune_by_fracbeam = sun_method_params[5]
         self.expand_by_npix = sun_method_params[6]
         self.expand_by_fracbeam = sun_method_params[7]
@@ -104,6 +104,9 @@ class KILOGAS_clip:
 
         # Mask spaxels under a certain threshold of pb response
         mask = self.mask_pb(mask, emiscube_pbcorr, emiscube_uncorr)
+
+        # Prune small island to get rid of remaining pb noise
+        mask = self.prune_small_detections(emiscube_uncorr_hdu, mask)
             
         mask_hdu = fits.PrimaryHDU(mask.astype(int), cube_pbcorr.header)
 
@@ -512,6 +515,8 @@ class KILOGAS_clip:
             bmin_pix = cube.header['BMIN'] / res  # deg. / (deg. / pix.)
             beam_area_pix = np.pi * bmaj_pix * bmin_pix
             prune_by_npix = beam_area_pix * self.prune_by_fracbeam
+
+            print(prune_by_npix)
 
         labels, count = label(mask)
         for idx in np.arange(count) + 1:
