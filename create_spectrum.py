@@ -48,7 +48,7 @@ def make_spectrum(cube, galaxy, start, stop, path, glob_cat, extra_chans=10, non
         #gaussian = gauss(vel_array_full, 3*rms, x0, sigma)
         
     else:
-        clip_mask = fits.open(path + 'by_galaxy/' + galaxy + '/' + galaxy + '_mask_cube.fits')[0]
+        clip_mask = fits.open(path + 'by_galaxy/' + galaxy + '/' + str(spec_res) + 'kms/' + galaxy + '_mask_cube.fits')[0]
         mask = np.sum(clip_mask.data, axis=0)
         mask = mask.astype(float)
         mask[mask > 0] = 1
