@@ -94,19 +94,20 @@ class KILOGAS_clip:
         
         emiscube_uncorr_hdu = fits.PrimaryHDU(emiscube_uncorr, cube_uncorr_copy.header)
         noisecube_uncorr_hdu = fits.PrimaryHDU(noisecube_uncorr, cube_uncorr_copy.header)
-        #emiscube_pbcorr_hdu --> nothing happens yet
+        emiscube_pbcorr_hdu = fits.PrimaryHDU(emiscube_pbcorr, cube_pbcorr.header)
         noisecube_pbcorr_hdu = fits.PrimaryHDU(noisecube_pbcorr, cube_pbcorr.header)
         
         if method == 'sun':
             mask = self.sun_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu, len(cube_pbcorr.data))
         elif method == 'dame':
-            mask = self.dame_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu, len(cube_pbcorr.data))
+            mask = self.dame_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu, len(cube_pbcorr.data),
+                                   emiscube_pbcorr_hdu)
 
         # Mask spaxels under a certain threshold of pb response
         mask = self.mask_pb(mask, emiscube_pbcorr, emiscube_uncorr)
 
         # Prune small island to get rid of remaining pb noise
-        mask = self.prune_small_detections(emiscube_uncorr_hdu, mask)
+        #mask = self.prune_small_detections(emiscube_uncorr_hdu, mask)
             
         mask_hdu = fits.PrimaryHDU(mask.astype(int), cube_pbcorr.header)
 
@@ -138,7 +139,7 @@ class KILOGAS_clip:
             if method == 'sun':
                 mask_hdu.header['CLIP_RMS'] = self.sun_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu, len(cube_pbcorr.data), calc_rms=True)
             elif method == 'dame':
-                mask_hdu.header['CLIP_RMS'] = self.dame_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu, len(cube_pbcorr.data), calc_rms=True)
+                mask_hdu.header['CLIP_RMS'] = self.dame_method(emiscube_uncorr_hdu, noisecube_uncorr_hdu, len(cube_pbcorr.data), emiscube_pbcorr_hdu, calc_rms=True)
             mask_hdu.header.comments['CLIP_RMS'] = 'rms [K km/s] for clipping'
 
             # Adjust the header to match the velocity range used
@@ -231,7 +232,7 @@ class KILOGAS_clip:
 
         return cube_pbcorr, cube_uncorr
 
-    def dame_method(self, emiscube, noisecube, size, calc_rms=False):
+    def dame_method(self, emiscube, noisecube, size, emiscube_pbcorr=None, calc_rms=False):
         """
         Function added by Tim Davis on April 17, 2025
         Function updated by Blake Ledger and Scott Wilkinson on June 3, 2025
@@ -258,7 +259,6 @@ class KILOGAS_clip:
         smooth_cube = uniform_filter(emiscube.data, size=[self.dame_chanexpand, sigma, sigma], mode='constant') 
         smooth_cube_noise = uniform_filter(noisecube.data, size=[self.dame_chanexpand, sigma, sigma], mode='constant') 
 
-
         #newrms = np.nanstd(self.innersquare(smooth_cube_noise)[self.start-10:self.start+10,:,:])
         #New noise calculation fixed to included cases where line is within 10 channels of the start or end of the cube
         
@@ -283,7 +283,11 @@ class KILOGAS_clip:
         else:
             newrms = np.nan
 
-        self.maskcliplevel=newrms*self.dame_clipsn    
+        if emiscube_pbcorr is not None:
+            pb_cube = emiscube.data / emiscube_pbcorr.data
+        else:
+            pb_cube = np.ones_like(emiscube)
+        self.maskcliplevel = newrms * self.dame_clipsn / np.abs(pb_cube)
         mask=(smooth_cube > self.maskcliplevel)
         
         if self.dame_suppress_subbeam_artifacts:
@@ -515,8 +519,6 @@ class KILOGAS_clip:
             bmin_pix = cube.header['BMIN'] / res  # deg. / (deg. / pix.)
             beam_area_pix = np.pi * bmaj_pix * bmin_pix
             prune_by_npix = beam_area_pix * self.prune_by_fracbeam
-
-            print(prune_by_npix)
 
         labels, count = label(mask)
         for idx in np.arange(count) + 1:
