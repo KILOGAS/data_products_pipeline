@@ -9,7 +9,7 @@ Some additional updates and changes, including removing most of the infrastructu
 Sun method testing as we are focused on the Dame+ 2011 smooth+clip method, which was implemented in the code by Tim Davis on April 17, 2025 and updated by Blake + Scott June 3, 2025.
 """
 
-def perform_smooth_and_clip(read_path, save_path, targets, chans2do, kms=10, pb_thresh=40, prune_by_npix=None):
+def perform_smooth_and_clip(read_path, save_path, targets, chans2do, kms=10, pb_thresh=40, prune_by_npix=None, ifu_match=True):
 
     ## Libraries to import.
     from spectral_cube import SpectralCube
@@ -67,29 +67,53 @@ def perform_smooth_and_clip(read_path, save_path, targets, chans2do, kms=10, pb_
             print('KGASID:', df['KGAS_ID'][idx][0], ', minchan:', minchan, ', maxchan:', maxchan)
             
             verbose = False
-        
-        try:
-            path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_12m.image.pbcor.ifumatched.fits"
-            path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_12m.image.ifumatched.fits"
-            cube = fits.open(path_pbcorr)[0]
-        except:
+            
+        if ifu_match:
             try:
-                path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_7m+12m.image.pbcor.ifumatched.fits"
-                path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_7m+12m.image.ifumatched.fits"
+                path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_12m.image.pbcor.ifumatched.fits"
+                path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_12m.image.ifumatched.fits"
                 cube = fits.open(path_pbcorr)[0]
             except:
                 try:
-                    path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_12m.contsub.image.pbcor.ifumatched.fits"
-                    path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_12m.contsub.image.ifumatched.fits"
+                    path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_7m+12m.image.pbcor.ifumatched.fits"
+                    path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_7m+12m.image.ifumatched.fits"
                     cube = fits.open(path_pbcorr)[0]
                 except:
                     try:
-                        path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_7m+12m.contsub.image.pbcor.ifumatched.fits"
-                        path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_7m+12m.contsub.image.ifumatched.fits"
+                        path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_12m.contsub.image.pbcor.ifumatched.fits"
+                        path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_12m.contsub.image.ifumatched.fits"
                         cube = fits.open(path_pbcorr)[0]
                     except:
-                        print('30 km/s cube not available for ' + galaxy + '. \n')
-                        continue
+                        try:
+                            path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_7m+12m.contsub.image.pbcor.ifumatched.fits"
+                            path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_7m+12m.contsub.image.ifumatched.fits"
+                            cube = fits.open(path_pbcorr)[0]
+                        except:
+                            print('Cube not available for ' + galaxy + '. \n')
+                            continue
+        else:
+            try:
+                path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_12m.image.pbcor.fits"
+                path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_12m.image.fits"
+                cube = fits.open(path_pbcorr)[0]
+            except:
+                try:
+                    path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_7m+12m.image.pbcor.fits"
+                    path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_7m+12m.image.fits"
+                    cube = fits.open(path_pbcorr)[0]
+                except:
+                    try:
+                        path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_12m.contsub.image.pbcor.fits"
+                        path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_12m.contsub.image.fits"
+                        cube = fits.open(path_pbcorr)[0]
+                    except:
+                        try:
+                            path_pbcorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_7m+12m.contsub.image.pbcor.fits"
+                            path_uncorr = read_path+galaxy+"/"+galaxy+"_co2-1_"+str(kms)+".0kmps_7m+12m.contsub.image.fits"
+                            cube = fits.open(path_pbcorr)[0]
+                        except:
+                            print('Cube not available for ' + galaxy + '. \n')
+                            continue
 
         try:
             fits.open(path_uncorr)
