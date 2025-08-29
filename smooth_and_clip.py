@@ -19,6 +19,7 @@ def perform_smooth_and_clip(read_path, save_path, targets, chans2do, kms=10, pb_
     import numpy as np
     import os
     from create_moments_dev import create_vel_array
+    import pandas as pd
     
     ## Main functions which will be used for the smoothing and clipping.
     from smooth_and_clip_functions import KILOGAS_clip
@@ -34,12 +35,15 @@ def perform_smooth_and_clip(read_path, save_path, targets, chans2do, kms=10, pb_
     
     ## important fits file from Tim Davis that describes the min/max channel of CO line for each galaxy
     ## clipping_channels; columns are ['KGAS_ID', 'RMS', 'minchan', 'maxchan', 'minchan_v', 'maxchan_v']
-    clipping_channels = fits.open(chans2do)
-    cols = clipping_channels[1].columns ## pull out column names
-    tbdata = clipping_channels[1].data  ## pull out data
-    
+    #clipping_channels = fits.open(chans2do)
+    #cols = clipping_channels[1].columns ## pull out column names
+    #tbdata = clipping_channels[1].data  ## pull out data
+
     ## create a dataframe with the table data
-    df = Table(tbdata)
+    #df = Table(tbdata)
+    
+    df = pd.read_csv(chans2do)
+    #print(df.head())
     
     #sun_method_params = [nchan_hi,snr_hi,nchan_lo,snr_lo,prune_by_npix,prune_by_fracbeam,
     #                     expand_by_npix,expand_by_fracbeam,expand_by_nchan]
@@ -60,7 +64,7 @@ def perform_smooth_and_clip(read_path, save_path, targets, chans2do, kms=10, pb_
         
         ## get min/max channels of current target
         kgasid = int(galaxy[4:])
-        idx = np.where(df['KGAS_ID']==kgasid)       
+        idx = np.where(df['KGAS_ID']==kgasid)[0]
         
         if verbose:
             print("Current target:", galaxy)
@@ -131,7 +135,11 @@ def perform_smooth_and_clip(read_path, save_path, targets, chans2do, kms=10, pb_
         #if kms == 10:
         #    minchan, maxchan = df['minchan'][idx][0],df['maxchan'][idx][0]
         #else:
-        vminchan, vmaxchan = df['minchan_v'][idx][0],df['maxchan_v'][idx][0] 
+        #vminchan, vmaxchan = df['minchan_v'][idx][0], df['maxchan_v'][idx][0] 
+
+        vminchan = df['minchan_v'].iloc[idx].iloc[0]
+        vmaxchan = df['maxchan_v'].iloc[idx].iloc[0]
+        
         _, _, vel_array, _ = create_vel_array(galaxy, cube)
         minchan = np.argmin(abs(vel_array - vminchan))
         maxchan = np.argmin(abs(vel_array - vmaxchan))

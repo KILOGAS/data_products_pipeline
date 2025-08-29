@@ -5,6 +5,7 @@ from photutils.aperture import CircularAperture
 from glob import glob
 import os
 from create_moments_dev import create_vel_array
+import pandas as pd
 
 
 def gauss(x, a, x0, sigma):
@@ -147,13 +148,15 @@ def get_all_spectra(read_path, save_path, targets, target_id, detected, chans2do
     
     galaxies = list(set([f.split('/')[8].split('_')[0] for f in files]))
     
-    clipping_table = fits.open(chans2do)[1]
-    KGAS_ID = clipping_table.data['KGAS_ID']
-    minchan = clipping_table.data['minchan']
-    maxchan = clipping_table.data['maxchan']
-    minchan_v = clipping_table.data['minchan_v']
-    maxchan_v = clipping_table.data['maxchan_v']
-    clipping_chans = {'KGAS' + id.astype(str): [min, max] for id, min, max in zip(KGAS_ID, minchan, maxchan)}
+    #clipping_table = fits.open(chans2do)[1]
+    clipping_table = pd.read_csv(chans2do)
+    KGAS_ID = np.array(clipping_table['KGAS_ID'])
+    #minchan = clipping_table.data['minchan']
+    #maxchan = clipping_table.data['maxchan']
+    minchan_v = np.array(clipping_table['minchan_v'])
+    maxchan_v = np.array(clipping_table['maxchan_v'])
+    
+    #clipping_chans = {'KGAS' + id.astype(str): [min, max] for id, min, max in zip(KGAS_ID, minchan, maxchan)}
     clipping_vels = {'KGAS' + id.astype(str): [min, max] for id, min, max in zip(KGAS_ID, minchan_v, maxchan_v)}
     
     detected_id = target_id
