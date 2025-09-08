@@ -40,7 +40,7 @@ def make_spectrum(cube, galaxy, start, stop, path, glob_cat, extra_chans=10, non
         mask3d = np.tile(mask, (cube.shape[0], 1, 1))
         masked_data = mask3d * cube.data
         
-        spectrum = np.nansum(masked_data, axis=(1, 2))
+        spectrum = np.nanmean(masked_data, axis=(1, 2))
         
         #rms = np.nanstd(spectrum)
         #fwhm = 100  # km/s
