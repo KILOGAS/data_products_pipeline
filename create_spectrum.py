@@ -58,7 +58,7 @@ def make_spectrum(cube, galaxy, start, stop, path, glob_cat, extra_chans=10, non
         masked_data = mask3d * cube.data
         masked_data[masked_data == 0] = np.nan
         
-        spectrum = np.nansum(masked_data, axis=(1, 2))
+        spectrum = np.nanmean(masked_data, axis=(1, 2))
         
     if start - extra_chans < 0:
         spectrum_velocities = vel_array_full[0:stop + extra_chans]
@@ -74,7 +74,7 @@ def make_spectrum(cube, galaxy, start, stop, path, glob_cat, extra_chans=10, non
 
     #rest_freq = 230538000000
     #spectrum_frequencies = rest_frequency * (1 - spectrum_velocities / 299792.458) / 1e9
-
+    
     csv_header = 'Spectrum (K), Velocity (km/s)'
 
     if spec_res == 10:
@@ -103,7 +103,7 @@ def plot_spectrum(galaxy, spectrum, velocity, extra_chans=0, x_axis='velocity',
     if x_axis == 'velocity':
         ax.plot(velocity, spectrum, color='k', drawstyle='steps')
         #x = np.arange(np.amin(velocity) - 100, np.amax(velocity) + 100, 1)
-        ax.set_xlim(velocity[len(velocity) - 1] + extra_chans, velocity[0] - extra_chans)
+        ax.set_xlim(velocity[0] - extra_chans, velocity[len(velocity) - 1] + extra_chans)
         ax.set_xlabel(r'Velocity [km s$^{-1}$]')
     '''
     elif x_axis == 'vel_offset':
@@ -202,6 +202,7 @@ def get_all_spectra(read_path, save_path, targets, target_id, detected, chans2do
         #else:
         start_v = clipping_vels[galaxy][0]
         stop_v = clipping_vels[galaxy][1]
+        
         _, _, vel_array, _ = create_vel_array(galaxy, cube_fits, spec_res=spec_res)
         start = np.argmin(abs(vel_array - start_v))
         stop = np.argmin(abs(vel_array - stop_v))
