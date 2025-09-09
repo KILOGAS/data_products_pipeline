@@ -14,7 +14,7 @@ import shutil
 
 if __name__ == '__main__':
     
-    ifu_match = True
+    ifu_match = False
     local = False
     clear_save_directory = False
     version = 1.0
@@ -41,7 +41,8 @@ if __name__ == '__main__':
             main_directory = '/arc/projects/KILOGAS/cubes/v1.0/original/'
             save_path = '/arc/projects/KILOGAS/products/v' + str(version) + '/original/'
         #chans2do = 'KGAS_chans2do.fits'
-        chans2do = 'KGAS_chans2do_v_detected.csv'
+        #chans2do = 'KGAS_chans2do_v_detected.csv'
+        chans2do = 'KGAS_chans2do_v_optical_Sept25.csv'
         if spec_res == 10:
             detected = np.genfromtxt(chans2do, 
                               delimiter=',', skip_header=1, usecols=[6], dtype=bool)
@@ -59,12 +60,12 @@ if __name__ == '__main__':
     #targets = ['KGAS55', 'KGAS61', 'KGAS84', 'KGAS107', 'KGAS108', 'KGAS112', 'KGAS146', 'KGAS325']
     #detections = ['KGAS55', 'KGAS61', 'KGAS84', 'KGAS107', 'KGAS108', 'KGAS112', 'KGAS146', 'KGAS325']
 
-    targets = ['KGAS73', 'KGAS128', 'KGAS184', 'KGAS255', 'KGAS262', 'KGAS288', 'KGAS328', 'KGAS371', 'KGAS397']
-    non_detections = ['KGAS73', 'KGAS128', 'KGAS184', 'KGAS255', 'KGAS262', 'KGAS288', 'KGAS328', 'KGAS371', 'KGAS397']
-    detections = []
+    #targets = ['KGAS73', 'KGAS128', 'KGAS184', 'KGAS255', 'KGAS262', 'KGAS288', 'KGAS328', 'KGAS371', 'KGAS397']
+    #non_detections = ['KGAS73', 'KGAS128', 'KGAS184', 'KGAS255', 'KGAS262', 'KGAS288', 'KGAS328', 'KGAS371', 'KGAS397']
+    #detections = []
 
-    #targets = ['KGAS251']
-    #detections = ['KGAS251']
+    targets = ['KGAS3']
+    detections = ['KGAS3']
     
     if clear_save_directory:
         for galaxy in non_detections:
@@ -81,8 +82,8 @@ if __name__ == '__main__':
                                             targets=detections, chans2do=chans2do, kms=spec_res, 
                                             pb_thresh=pb_thresh, prune_by_npix=prune_by_npix,
                                            ifu_match=ifu_match)
-    create_moments_dev.perform_moment_creation(path=save_path, data_path=main_directory, targets=detections, glob_cat=glob_cat, spec_res=spec_res)
-    image_moments_dev.perform_moment_imaging(glob_path=save_path, targets=detections, spec_res=spec_res)
+    #create_moments_dev.perform_moment_creation(path=save_path, data_path=main_directory, targets=detections, glob_cat=glob_cat, spec_res=spec_res)
+    #image_moments_dev.perform_moment_imaging(glob_path=save_path, targets=detections, spec_res=spec_res)
     create_spectrum.get_all_spectra(read_path=main_directory, save_path=save_path, targets=targets, 
                                     target_id=target_id, detected=detected, chans2do=chans2do, glob_cat=glob_cat, spec_res=spec_res)
 
