@@ -12,6 +12,12 @@ def gauss(x, a, x0, sigma):
     return a * np.exp(-(x - x0) ** 2 / (2 * sigma ** 2))
 
 
+def brightness_temp_to_flux_dens(T, header, nu=230.538):
+    bmaj = header['BMAJ'] * 3600
+    bmin = header['BMIN'] * 3600
+    return T * nu ** 2 * bmaj * bmin / 1.222e3 / 1e3
+
+
 def make_spectrum(cube, galaxy, start, stop, path, glob_cat, extra_chans=10, non_det=False, spec_res=10):
 
     _, _, vel_array_full, _ = create_vel_array(galaxy, cube, spec_res=spec_res)
@@ -41,6 +47,10 @@ def make_spectrum(cube, galaxy, start, stop, path, glob_cat, extra_chans=10, non
         masked_data = mask3d * cube.data
         
         spectrum = np.nanmean(masked_data, axis=(1, 2))
+
+        # Add the spectrum in Jy km/s
+        masked_data_Jyb = brightness_temp_to_flux_dens(masked_data, cube.header)
+        spectrum_Jy_kms = np.nansum(masked_data_Jyb, axis=(1, 2))
         
         #rms = np.nanstd(spectrum)
         #fwhm = 100  # km/s
@@ -60,6 +70,10 @@ def make_spectrum(cube, galaxy, start, stop, path, glob_cat, extra_chans=10, non
         
         spectrum = np.nanmean(masked_data, axis=(1, 2))
         
+        # Add the spectrum in Jy km/s
+        masked_data_Jyb = brightness_temp_to_flux_dens(masked_data, cube.header)
+        spectrum_Jy_kms = np.nansum(masked_data_Jyb, axis=(1, 2))
+        
     if start - extra_chans < 0:
         spectrum_velocities = vel_array_full[0:stop + extra_chans]
         spectrum = spectrum[0:stop + extra_chans]
@@ -75,21 +89,21 @@ def make_spectrum(cube, galaxy, start, stop, path, glob_cat, extra_chans=10, non
     #rest_freq = 230538000000
     #spectrum_frequencies = rest_frequency * (1 - spectrum_velocities / 299792.458) / 1e9
     
-    csv_header = 'Spectrum (K), Velocity (km/s)'
+    csv_header = 'Spectrum (K), Spectrum (Jy km/s), Velocity (km/s)'
 
     if spec_res == 10:
         np.savetxt(path + 'by_galaxy/' + galaxy + '/10kms/' + galaxy + '_spectrum.csv',
-                   np.column_stack((spectrum, spectrum_velocities)),
+                   np.column_stack((spectrum, spectrum_Jy_kms, spectrum_velocities)),
                    delimiter=',', header=csv_header)
         np.savetxt(path + 'by_product/spectrum/10kms/' + galaxy + '_spectrum.csv',
-           np.column_stack((spectrum, spectrum_velocities)),
+           np.column_stack((spectrum, spectrum_Jy_kms, spectrum_velocities)),
            delimiter=',', header=csv_header)
     elif spec_res == 30:
         np.savetxt(path + 'by_galaxy/' + galaxy + '/30kms/' + galaxy + '_spectrum.csv',
-                   np.column_stack((spectrum, spectrum_velocities)),
+                   np.column_stack((spectrum, spectrum_Jy_kms, spectrum_velocities)),
                    delimiter=',', header=csv_header)
         np.savetxt(path + 'by_product/spectrum/30kms/' + galaxy + '_spectrum.csv',
-           np.column_stack((spectrum, spectrum_velocities)),
+           np.column_stack((spectrum, spectrum_Jy_kms, spectrum_velocities)),
            delimiter=',', header=csv_header)
         
     return spectrum, spectrum_velocities
