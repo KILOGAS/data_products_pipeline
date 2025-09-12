@@ -11,16 +11,23 @@ import pandas as pd
 def gauss(x, a, x0, sigma):
     return a * np.exp(-(x - x0) ** 2 / (2 * sigma ** 2))
 
+def calc_beam_area(bmaj,bmin,cellsize=1):
+    return (np.pi*(bmaj/cellsize)*(bmin/cellsize))/(4*np.log(2))
 
-def brightness_temp_to_flux_dens(T, header, nu=230.538):
-    bmaj = header['BMAJ'] * 3600
-    bmin = header['BMIN'] * 3600
-    return T * nu ** 2 * bmaj * bmin / 1.222e3 / 1e3
-
+def brightness_temp_to_flux_dens(T, bmaj, bmin, nu=230.538):
+    return T * nu ** 2 * bmaj * bmin / 1.222e3
 
 def make_spectrum(cube, galaxy, start, stop, path, glob_cat, extra_chans=10, non_det=False, spec_res=10):
 
     _, _, vel_array_full, _ = create_vel_array(galaxy, cube, spec_res=spec_res)
+    
+    bmaj = cube.header['BMAJ'] * 3600
+    bmin = cube.header['BMIN'] * 3600
+
+    if spec_res == 10:
+        beam_area = calc_beam_area(bmaj, bmin, cellsize=0.1)
+    elif spec_res == 30:
+        beam_area = calc_beam_area(bmaj, bmin, cellsize=0.5)
     
     if non_det:
         
@@ -48,9 +55,9 @@ def make_spectrum(cube, galaxy, start, stop, path, glob_cat, extra_chans=10, non
         
         spectrum = np.nanmean(masked_data, axis=(1, 2))
 
-        # Add the spectrum in Jy km/s
-        masked_data_Jyb = brightness_temp_to_flux_dens(masked_data, cube.header)
-        spectrum_Jy_kms = np.nansum(masked_data_Jyb, axis=(1, 2))
+        # Add the spectrum in mJy
+        masked_data_mJyb = brightness_temp_to_flux_dens(masked_data, bmaj, bmin)
+        spectrum_mJy = np.nansum(masked_data_mJyb, axis=(1, 2)) / beam_area
         
         #rms = np.nanstd(spectrum)
         #fwhm = 100  # km/s
@@ -70,46 +77,50 @@ def make_spectrum(cube, galaxy, start, stop, path, glob_cat, extra_chans=10, non
         
         spectrum = np.nanmean(masked_data, axis=(1, 2))
         
-        # Add the spectrum in Jy km/s
-        masked_data_Jyb = brightness_temp_to_flux_dens(masked_data, cube.header)
-        spectrum_Jy_kms = np.nansum(masked_data_Jyb, axis=(1, 2))
+        # Add the spectrum in mJy
+        masked_data_mJyb = brightness_temp_to_flux_dens(masked_data, bmaj, bmin)
+        spectrum_mJy = np.nansum(masked_data_mJyb, axis=(1, 2)) / beam_area
         
     if start - extra_chans < 0:
         spectrum_velocities = vel_array_full[0:stop + extra_chans]
         spectrum = spectrum[0:stop + extra_chans]
+        spectrum_mJy = spectrum_mJy[0:stop + extra_chans]
         #spectrum_vel_offset = spectrum_velocities - sysvel + self.galaxy.sysvel_offset
     elif stop + extra_chans > len(vel_array_full):
         spectrum_velocities = vel_array_full[start:]
         spectrum = spectrum[start:]
+        spectrum_mJy = spectrum_mJy[start:]
     else:
         spectrum_velocities = vel_array_full[start - extra_chans:stop + extra_chans]
         spectrum = spectrum[start - extra_chans:stop + extra_chans]
+        spectrum_mJy = spectrum_mJy[start - extra_chans:stop + extra_chans]
         #spectrum_vel_offset = spectrum_velocities - sysvel + self.galaxy.sysvel_offset
 
     #rest_freq = 230538000000
     #spectrum_frequencies = rest_frequency * (1 - spectrum_velocities / 299792.458) / 1e9
     
-    csv_header = 'Spectrum (K), Spectrum (Jy km/s), Velocity (km/s)'
+    csv_header = 'Spectrum (K), Spectrum (mJy), Velocity (km/s)'
 
     if spec_res == 10:
         np.savetxt(path + 'by_galaxy/' + galaxy + '/10kms/' + galaxy + '_spectrum.csv',
-                   np.column_stack((spectrum, spectrum_Jy_kms, spectrum_velocities)),
+                   np.column_stack((spectrum, spectrum_mJy, spectrum_velocities)),
                    delimiter=',', header=csv_header)
         np.savetxt(path + 'by_product/spectrum/10kms/' + galaxy + '_spectrum.csv',
-           np.column_stack((spectrum, spectrum_Jy_kms, spectrum_velocities)),
+           np.column_stack((spectrum, spectrum_mJy, spectrum_velocities)),
            delimiter=',', header=csv_header)
+    
     elif spec_res == 30:
         np.savetxt(path + 'by_galaxy/' + galaxy + '/30kms/' + galaxy + '_spectrum.csv',
-                   np.column_stack((spectrum, spectrum_Jy_kms, spectrum_velocities)),
+                   np.column_stack((spectrum, spectrum_mJy, spectrum_velocities)),
                    delimiter=',', header=csv_header)
         np.savetxt(path + 'by_product/spectrum/30kms/' + galaxy + '_spectrum.csv',
-           np.column_stack((spectrum, spectrum_Jy_kms, spectrum_velocities)),
+           np.column_stack((spectrum, spectrum_mJy, spectrum_velocities)),
            delimiter=',', header=csv_header)
         
-    return spectrum, spectrum_velocities
+    return spectrum, spectrum_mJy, spectrum_velocities
 
 
-def plot_spectrum(galaxy, spectrum, velocity, extra_chans=0, x_axis='velocity', 
+def plot_spectrum(galaxy, spectrum, spectrum_mJy, velocity, extra_chans=0, x_axis='velocity', 
              useclipped=False, savepath=None, spec_res=10):
 
     fig, ax = plt.subplots(figsize=(7, 7))
@@ -134,6 +145,10 @@ def plot_spectrum(galaxy, spectrum, velocity, extra_chans=0, x_axis='velocity',
     else:
         raise AttributeError('Please choose between "velocity" , "vel_offset", and "frequency" for "x-axis"')
     '''
+
+    ax2 = ax.twinx()
+    ax2.plot(velocity, spectrum_mJy, color='k', drawstyle='steps')
+    ax2.set_ylabel('Flux Density (mJy)', color='k')
 
     # Line through zero
     #zeroline = np.zeros(len(x))
@@ -222,9 +237,9 @@ def get_all_spectra(read_path, save_path, targets, target_id, detected, chans2do
         stop = np.argmin(abs(vel_array - stop_v))
 
         try:
-            spec, vel = make_spectrum(cube_fits, galaxy, start, stop, save_path, glob_cat=glob_cat, 
+            spec, spec_mJy, vel = make_spectrum(cube_fits, galaxy, start, stop, save_path, glob_cat=glob_cat, 
                                   extra_chans=10, non_det=non_det, spec_res=spec_res)   
-            plot_spectrum(galaxy, spec, vel, extra_chans=0, savepath=save_path, spec_res=spec_res)
+            plot_spectrum(galaxy, spec, spec_mJy, vel, extra_chans=0, savepath=save_path, spec_res=spec_res)
         except:
             pass
 
