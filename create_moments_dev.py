@@ -34,14 +34,21 @@ def new_header(header):
     header.pop('CDELT3')
     header.pop('CRPIX3')
     header.pop('CUNIT3')
-    header.pop('PC3_1')
-    header.pop('PC3_2')
-    header.pop('PC1_3')
-    header.pop('PC2_3')
-    header.pop('PC3_3')
+    try:
+        header.pop('PC3_1')
+        header.pop('PC3_2')
+        header.pop('PC1_3')
+        header.pop('PC2_3')
+        header.pop('PC3_3')
+    except:
+        pass
     header.pop('NAXIS3')
     
     header['NAXIS'] = 3
+    try:
+        header['WCSAXES'] = 2
+    except:
+        pass
 
     return header
 
@@ -78,9 +85,14 @@ def create_vel_array(galaxy, cube, spec_res=10, savepath=None):
 
     v_ref = cube.header['CRPIX3']  # Location of the reference channel
     
-    if cube.header['CTYPE3'] == 'VRAD' or cube.header['CTYPE3'] == 'VELOCITY' or cube.header['CTYPE3'] == 'VOPT':
-        v_val = cube.header['CRVAL3'] / 1000  # Velocity in the reference channel, m/s to km/s
-        v_step = cube.header['CDELT3'] / 1000  # Velocity step in each channel, m/s to km/s
+    if cube.header['CTYPE3'] == 'VRAD' or cube.header['CTYPE3'] == 'VELOCITY' \
+      or cube.header['CTYPE3'] == 'VOPT' or cube.header['CTYPE3'] == 'VOPT-W2W':
+        if cube.header['CUNIT3'] != 'km s-1':
+            v_val = cube.header['CRVAL3'] / 1000  # Velocity in the reference channel, m/s to km/s
+            v_step = cube.header['CDELT3'] / 1000  # Velocity step in each channel, m/s to km/s
+        else:
+            v_val = cube.header['CRVAL3']  # Velocity in the reference channel
+            v_step = cube.header['CDELT3']  # Velocity step in each channel
         
     elif cube.header['CTYPE3'] == 'FREQ':
         v_val = 299792.458 * (1 - (cube.header['CRVAL3'] / 1e9) / 230.538000)
@@ -306,7 +318,7 @@ def calc_moms(cube, galaxy, glob_cat, spec_res=10, savepath=None, units='K km/s'
         
     return mom0_hdu, mom1_hdu, mom2_hdu
     
-def calc_uncs(cube, path, galaxy, glob_cat, savepath, spec_res=10, units='K km/s', alpha_co=4.35, R21=0.7):
+def calc_uncs(cube, path, galaxy, glob_cat, savepath, ifu_match, spec_res=10, units='K km/s', alpha_co=4.35, R21=0.7):
     
     # Calculate the number of channels by converting the cube into a boolean
     cube_bool = cube.data.copy()
@@ -319,32 +331,52 @@ def calc_uncs(cube, path, galaxy, glob_cat, savepath, spec_res=10, units='K km/s
     
     # The noise map is the rms divided by the PB map. The PB map should have 
     # values only where the clipped data cube has values.
-    try:
-        pb_file = glob(path + '/' + galaxy + '/' + galaxy + '*.pb.fits')[0]
-        pb_cube = fits.open(pb_file)[0]
-    except:
+    #try:
+    #    pb_file = glob(path + '/' + galaxy + '/' + galaxy + '*.pb.fits')[0]
+    #    pb_cube = fits.open(pb_file)[0]
+    #except:
+    if ifu_match == True:
         try:
-            path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.image.pbcor.ifumatched.fits"
-            path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.image.ifumatched.fits"
+            path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_" + str(spec_res) + ".0kmps_12m.image.pbcor.ifumatched.fits"
+            path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_" + str(spec_res) + ".0kmps_12m.image.ifumatched.fits"
             cube_pb_corr = fits.open(path_pbcorr)[0]
         except:
             try:
-                path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.pbcor.ifumatched.fits"
-                path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.image.ifumatched.fits"
+                path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_" + str(spec_res) + ".0kmps_7m+12m.image.pbcor.ifumatched.fits"
+                path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_" + str(spec_res) + ".0kmps_7m+12m.image.ifumatched.fits"
                 cube_pb_corr = fits.open(path_pbcorr)[0]
             except:
                 try:
-                    path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.contsub.image.pbcor.ifumatched.fits"
-                    path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_12m.contsub.image.ifumatched.fits"
+                    path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_" + str(spec_res) + ".0kmps_12m.contsub.image.pbcor.ifumatched.fits"
+                    path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_" + str(spec_res) + ".0kmps_12m.contsub.image.ifumatched.fits"
                     cube_pb_corr = fits.open(path_pbcorr)[0]
                 except:
-                    path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.contsub.image.pbcor.ifumatched.fits"
-                    path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_10.0kmps_7m+12m.contsub.image.ifumatched.fits"
+                    path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_" + str(spec_res) + ".0kmps_7m+12m.contsub.image.pbcor.ifumatched.fits"
+                    path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_" + str(spec_res) + ".0kmps_7m+12m.contsub.image.ifumatched.fits"
+                    cube_pb_corr = fits.open(path_pbcorr)[0]
+    else:        
+        try:
+            path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_" + str(spec_res) + ".0kmps_12m.image.pbcor.fits"
+            path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_" + str(spec_res) + ".0kmps_12m.image.fits"
+            cube_pb_corr = fits.open(path_pbcorr)[0]
+        except:
+            try:
+                path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_" + str(spec_res) + ".0kmps_7m+12m.image.pbcor.fits"
+                path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_" + str(spec_res) + ".0kmps_7m+12m.image.fits"
+                cube_pb_corr = fits.open(path_pbcorr)[0]
+            except:
+                try:
+                    path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_" + str(spec_res) + ".0kmps_12m.contsub.image.pbcor.fits"
+                    path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_" + str(spec_res) + ".0kmps_12m.contsub.image.fits"
+                    cube_pb_corr = fits.open(path_pbcorr)[0]
+                except:
+                    path_pbcorr = path+galaxy+"/"+galaxy+"_co2-1_" + str(spec_res) + ".0kmps_7m+12m.contsub.image.pbcor.fits"
+                    path_uncorr = path+galaxy+"/"+galaxy+"_co2-1_" + str(spec_res) + ".0kmps_7m+12m.contsub.image.fits"
                     cube_pb_corr = fits.open(path_pbcorr)[0]
             
-        cube_uncorr = fits.open(path_uncorr)[0]
-        pb_cube = cube_pb_corr.copy()
-        pb_cube.data = cube_uncorr.data / cube_pb_corr.data
+    cube_uncorr = fits.open(path_uncorr)[0]
+    pb_cube = cube_pb_corr.copy()
+    pb_cube.data = cube_uncorr.data / cube_pb_corr.data
     
     pb_cube.data[cube_bool.data != cube_bool.data] = np.nan
     noise_cube = cube.header['CLIP_RMS'] / pb_cube.data
@@ -359,11 +391,14 @@ def calc_uncs(cube, path, galaxy, glob_cat, savepath, spec_res=10, units='K km/s
     
     cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
     pc_to_pix = (cube.header['CDELT2'] * cosmo.kpc_proper_per_arcmin(z).value * 60 * 1000) ** 2
-    
-    mom0_uncertainty = noise_map * np.sqrt(N_map) * abs(cube.header['CDELT3'] / 1000)
+
+    if cube.header['CUNIT3'] != 'km s-1':
+        mom0_uncertainty = noise_map * np.sqrt(N_map) * abs(cube.header['CDELT3'] / 1000)
+    else:
+        mom0_uncertainty = noise_map * np.sqrt(N_map) * abs(cube.header['CDELT3'])
 
     mom0_uncertainty[np.isinf(mom0_uncertainty)] = np.nan
-    mom0_uncertainty[mom0_uncertainty <= 0] = np.nan    
+    mom0_uncertainty[mom0_uncertainty <= 0] = np.nan
 
     if units == 'Msol pc-2':
         mom0_hdu, _, _ = calc_moms(cube, galaxy, glob_cat, spec_res=spec_res, savepath=None, units='Msol pc-2')
@@ -458,13 +493,21 @@ def calc_uncs(cube, path, galaxy, glob_cat, savepath, spec_res=10, units='K km/s
             SN_hdu.writeto(savepath + 'by_galaxy/' + galaxy + '/30kms/' + galaxy + '_mom0_SN.fits', overwrite=True)
             SN_hdu.writeto(savepath + 'by_product/moment_maps/30kms/' + galaxy + '_mom0_SN.fits', overwrite=True)
         
-        
-        mom1_uncertainty = (N_map * abs(cube.header['CDELT3'] / 1000) / (2 * np.sqrt(3))) * \
-                           (mom0_uncertainty / mom0_hdu.data)  # Eqn 15 doc. Chris
+        if cube.header['CUNIT3'] != 'km s-1':
+            mom1_uncertainty = (N_map * abs(cube.header['CDELT3'] / 1000) / (2 * np.sqrt(3))) * \
+                               (mom0_uncertainty / mom0_hdu.data)  # Eqn 15 doc. Chris
+        else:
+            mom1_uncertainty = (N_map * abs(cube.header['CDELT3']) / (2 * np.sqrt(3))) * \
+                               (mom0_uncertainty / mom0_hdu.data)  # Eqn 15 doc. Chris
         mom1_uncertainty_hdu = fits.PrimaryHDU(mom1_uncertainty, mom1_hdu.header)
-               
-        mom2_uncertainty = ((N_map * abs(cube.header['CDELT3'] / 1000)) ** 2 / (8 * np.sqrt(5))) * \
-                           (mom0_uncertainty / mom0_hdu.data) * (mom2_hdu.data) ** -1  # Eqn 30 doc. Chris           
+
+        if cube.header['CUNIT3'] != 'km s-1':
+            mom2_uncertainty = ((N_map * abs(cube.header['CDELT3'] / 1000)) ** 2 / (8 * np.sqrt(5))) * \
+                           (mom0_uncertainty / mom0_hdu.data) * (mom2_hdu.data) ** -1  # Eqn 30 doc. Chris   
+        else:
+            mom2_uncertainty = ((N_map * abs(cube.header['CDELT3'])) ** 2 / (8 * np.sqrt(5))) * \
+                           (mom0_uncertainty / mom0_hdu.data) * (mom2_hdu.data) ** -1  # Eqn 30 doc. Chris   
+        
         mom2_uncertainty_hdu = fits.PrimaryHDU(mom2_uncertainty, mom2_hdu.header)
         
         if spec_res == 10:
@@ -499,7 +542,7 @@ def calc_peak_t(cube, galaxy, spec_res=10, savepath=None):
         peak_temp_hdu.writeto(savepath + 'by_product/moment_maps/30kms/' + galaxy + '_peak_temp_k.fits', overwrite=True)
 
 
-def perform_moment_creation(path, data_path, targets, glob_cat, spec_res=10):
+def perform_moment_creation(path, data_path, targets, glob_cat, ifu_match, spec_res=10):
 
     if spec_res == 10:
         files = glob(path + 'by_galaxy/**/10kms/*clipped_cube.fits')
@@ -531,13 +574,13 @@ def perform_moment_creation(path, data_path, targets, glob_cat, spec_res=10):
             calc_moms(cube_fits, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, units='Msol/pix', alpha_co=4.35, R21=0.7)
             calc_peak_t(cube_fits, galaxy, spec_res=spec_res, savepath=path)
             
-            calc_uncs(cube_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, 
+            calc_uncs(cube_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, ifu_match=ifu_match,
                       units='K km/s', alpha_co=4.35, R21=0.7)
-            calc_uncs(cube_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, 
+            calc_uncs(cube_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, ifu_match=ifu_match,
                       units='K km/s pc^2', alpha_co=4.35, R21=0.7)
-            calc_uncs(cube_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, 
+            calc_uncs(cube_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, ifu_match=ifu_match,
                       units='Msol pc-2', alpha_co=4.35, R21=0.7)
-            calc_uncs(cube_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, 
+            calc_uncs(cube_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, ifu_match=ifu_match,
                       units='Msol/pix', alpha_co=4.35, R21=0.7)
 
 

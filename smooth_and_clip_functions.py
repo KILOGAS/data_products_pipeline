@@ -18,7 +18,7 @@ import os
 
 class KILOGAS_clip:
 
-    def __init__(self, gal, path_pbcorr, path_uncorr, start, stop, verbose, save, read_path, save_path,sun_method_params=[3,3,2,2, None, 0.1, None, None, None],dame_method_params=[5,1.5,4,1], spec_res=10, pb_thresh=40, prune_by_npix=None):
+    def __init__(self, gal, path_pbcorr, path_uncorr, start, stop, verbose, save, read_path, save_path, sun_method_params=[3,3,2,2, None, 0.1, None, None, None],dame_method_params=[5,1.5,4,1], spec_res=10, pb_thresh=40, prune_by_npix=None):
         self.galaxy = gal
         self.path_pbcorr = path_pbcorr
         self.path_uncorr = path_uncorr
