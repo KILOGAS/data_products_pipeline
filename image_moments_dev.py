@@ -112,7 +112,7 @@ def moment_zero(mom0, galaxy, path, spec_res=10, savename=None, units='Jy/beam k
     #    fig.add_scalebar(length=length, label='1 kpc', frame=False)
     #    fig.scalebar.set_linewidth(5)
 
-    plt.tight_layout()
+    #plt.tight_layout()
 
     if savename:
         if spec_res == 10:
@@ -208,8 +208,11 @@ def moment_1_2(mom, galaxy, moment, path, spec_res=10, savename=None):
         else:
             ticks = []
 
-        #ticks = np.concatenate((tickarr, [0], abs(tickarr)))
-        cbar = fig.colorbar(colors, ticks=ticks)
+        try:
+            cbar = fig.colorbar(colors, ticks=ticks)
+        except:
+            ticks = np.concatenate((tickarr, [0], abs(tickarr)))
+            cbar = fig.colorbar(colors, ticks=ticks)
         if 'err' in savename:
             cbar.set_label(r'Velocity error [km s$^{-1}$]')
         else:
@@ -228,7 +231,7 @@ def moment_1_2(mom, galaxy, moment, path, spec_res=10, savename=None):
     #    fig.scalebar.set_linewidth(5)
 
     #Make sure the axis labels don't fall off the figure
-    plt.tight_layout()
+    #plt.tight_layout()
 
     if spec_res == 10:        
         plt.savefig(path + 'by_galaxy/' + galaxy + '/10kms/' + savename + '.png', bbox_inches='tight')
@@ -251,14 +254,16 @@ def perform_moment_imaging(glob_path, targets, spec_res=10):
         
         if not galaxy in targets:
             continue
+        else:
+            print(galaxy)
 
         if spec_res == 10:
             path = glob_path + 'by_galaxy/' + galaxy + '/10kms/'
         elif spec_res == 30:
             path = glob_path + 'by_galaxy/' + galaxy + '/30kms/'
         
-        #if os.path.exists(path + galaxy + '_Ico_K_kms-1.png'):
-        #    continue
+        if os.path.exists(path + galaxy + '_Ico_K_kms-1.png'):
+            continue
         
         mom0_K_kmss = glob(path + '*Ico*.fits')
         mom0_K_kms_pc2s = glob(path + '*Lco*.fits')
