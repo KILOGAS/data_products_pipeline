@@ -362,7 +362,8 @@ def calc_moms(cube, galaxy, glob_cat, spec_res=10, savepath=None, units='K km/s'
         
     return mom0_hdu, mom1_hdu, mom2_hdu
     
-def calc_uncs(cube, path, galaxy, glob_cat, savepath, ifu_match, spec_res=10, units='K km/s', alpha_co=4.35, R21=0.7, lw=30, ul=3, detection=True):
+def calc_uncs(cube, path, galaxy, glob_cat, savepath, ifu_match, spec_res=10, units='K km/s', 
+              alpha_co=4.35, R21=0.7, lw=30, ul=3, pb_thresh=40, detection=True):
     
     # Calculate the number of channels by converting the cube into a boolean
     cube_bool = cube.data.copy()
@@ -429,6 +430,7 @@ def calc_uncs(cube, path, galaxy, glob_cat, savepath, ifu_match, spec_res=10, un
     else:
         inner_square = innersquare(cube_uncorr.data)
         noise_cube = np.nanstd(inner_square) / pb_cube.data
+        noise_cube[pb_cube.data < pb_thresh/100] = np.nan
     
     # Use the median value of the PB cube along the spectral axis to create a 
     # representative 2D map.
@@ -447,8 +449,10 @@ def calc_uncs(cube, path, galaxy, glob_cat, savepath, ifu_match, spec_res=10, un
         else:
             mom0_uncertainty = noise_map * np.sqrt(N_map) * abs(cube.header['CDELT3'])
 
+    elif cube.header['CUNIT3'] != 'km s-1':
+        mom0_uncertainty = noise_map * lw * ul * np.sqrt(lw / abs(cube.header['CDELT3'] / 1000))
     else:
-        mom0_uncertainty = noise_map * lw * ul
+        mom0_uncertainty = noise_map * lw * ul * np.sqrt(lw / abs(cube.header['CDELT3']))
 
     mom0_uncertainty[np.isinf(mom0_uncertainty)] = np.nan
     mom0_uncertainty[mom0_uncertainty <= 0] = np.nan
@@ -625,7 +629,7 @@ def calc_peak_t(cube, galaxy, spec_res=10, savepath=None):
         peak_temp_hdu.writeto(savepath + 'by_product/moment_maps/30kms/' + galaxy + '_peak_temp_k.fits', overwrite=True)
 
 
-def perform_moment_creation(path, data_path, detections, non_detections, glob_cat, ifu_match, spec_res=10):
+def perform_moment_creation(path, data_path, detections, non_detections, glob_cat, ifu_match, spec_res=10, pb_thresh=40):
 
     #if spec_res == 10:
     #    files = glob(path + 'by_galaxy/**/10kms/*clipped_cube.fits')
@@ -640,7 +644,7 @@ def perform_moment_creation(path, data_path, detections, non_detections, glob_ca
     #    if galaxy not in targets:
     #        continue
 
-    '''
+
     for galaxy in detections:
         
         print(galaxy)
@@ -650,8 +654,15 @@ def perform_moment_creation(path, data_path, detections, non_detections, glob_ca
         elif spec_res == 30:
             cube = glob(path + 'by_galaxy/' + galaxy + '/30kms/*clipped_cube.fits')
 
-        cube_fits = fits.open(cube[0])[0]
+        if ifu_match:
+            cube_raw = glob('/arc/projects/KILOGAS/cubes/v1.0/matched/' + galaxy + '/*' + str(spec_res) + '*.image.ifumatched.fits')
+        elif not ifu_match:
+            cube_raw = glob('/arc/projects/KILOGAS/cubes/v1.0/nyquist/' + galaxy + '/*' + str(spec_res) + '*.image.fits')
 
+        cube_fits = fits.open(cube[0])[0]
+        cube_raw_fits = fits.open(cube_raw[0])[0]
+
+        '''
         calc_moms(cube_fits, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, units='K km/s', alpha_co=4.35, R21=0.7)
         calc_moms(cube_fits, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, units='K km/s pc^2', alpha_co=4.35, R21=0.7)
         calc_moms(cube_fits, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, units='Msol pc-2', alpha_co=4.35, R21=0.7)
@@ -666,7 +677,17 @@ def perform_moment_creation(path, data_path, detections, non_detections, glob_ca
                   units='Msol pc-2', alpha_co=4.35, R21=0.7, detection=True)
         calc_uncs(cube_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, ifu_match=ifu_match,
                   units='Msol/pix', alpha_co=4.35, R21=0.7, detection=True)
-    '''
+        '''
+
+        calc_uncs(cube_raw_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, ifu_match=ifu_match,
+                  units='K km/s', alpha_co=4.35, R21=0.7, detection=False, lw=30, ul=3, pb_thresh=pb_thresh)
+        calc_uncs(cube_raw_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, ifu_match=ifu_match,
+                  units='K km/s pc^2', alpha_co=4.35, R21=0.7, detection=False, lw=30, ul=3, pb_thresh=pb_thresh)
+        calc_uncs(cube_raw_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, ifu_match=ifu_match,
+                  units='Msol pc-2', alpha_co=4.35, R21=0.7, detection=False, lw=30, ul=3, pb_thresh=pb_thresh)
+        calc_uncs(cube_raw_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, ifu_match=ifu_match,
+                  units='Msol/pix', alpha_co=4.35, R21=0.7, detection=False, lw=30, ul=3, pb_thresh=pb_thresh)
+    
             
     for galaxy in non_detections:
 
@@ -684,13 +705,13 @@ def perform_moment_creation(path, data_path, detections, non_detections, glob_ca
             continue
 
         calc_uncs(cube_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, ifu_match=ifu_match,
-                  units='K km/s', alpha_co=4.35, R21=0.7, detection=False, lw=30, ul=3)
+                  units='K km/s', alpha_co=4.35, R21=0.7, detection=False, lw=30, ul=3, pb_thresh=pb_thresh)
         calc_uncs(cube_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, ifu_match=ifu_match,
-                  units='K km/s pc^2', alpha_co=4.35, R21=0.7, detection=False, lw=30, ul=3)
+                  units='K km/s pc^2', alpha_co=4.35, R21=0.7, detection=False, lw=30, ul=3, pb_thresh=pb_thresh)
         calc_uncs(cube_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, ifu_match=ifu_match,
-                  units='Msol pc-2', alpha_co=4.35, R21=0.7, detection=False, lw=30, ul=3)
+                  units='Msol pc-2', alpha_co=4.35, R21=0.7, detection=False, lw=30, ul=3, pb_thresh=pb_thresh)
         calc_uncs(cube_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, ifu_match=ifu_match,
-                  units='Msol/pix', alpha_co=4.35, R21=0.7, detection=False, lw=30, ul=3)
+                  units='Msol/pix', alpha_co=4.35, R21=0.7, detection=False, lw=30, ul=3, pb_thresh=pb_thresh)
 
 
 
