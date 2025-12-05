@@ -14,7 +14,7 @@ import shutil
 
 if __name__ == '__main__':
     
-    ifu_match = True
+    ifu_match = False
     local = False
     clear_save_directory = False
     version = 1.1
@@ -80,7 +80,7 @@ if __name__ == '__main__':
     #                                        pb_thresh=pb_thresh, prune_by_npix=prune_by_npix,
     #                                       ifu_match=ifu_match)
     create_moments_dev.perform_moment_creation(path=save_path, data_path=main_directory, detections=detections, 
-                                               non_detections=non_detections, glob_cat=glob_cat, spec_res=spec_res, ifu_match=ifu_match)
+                                               non_detections=non_detections, glob_cat=glob_cat, spec_res=spec_res, ifu_match=ifu_match, pb_thresh=pb_thresh)
     #image_moments_dev.perform_moment_imaging(glob_path=save_path, targets=detections, spec_res=spec_res)
     #create_spectrum.get_all_spectra(read_path=main_directory, save_path=save_path, targets=targets, 
     #                                target_id=target_id, detected=detected, chans2do=chans2do, glob_cat=glob_cat, ifu_match=ifu_match, spec_res=spec_res)
