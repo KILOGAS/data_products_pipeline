@@ -8,13 +8,13 @@ from astropy.cosmology import FlatLambdaCDM
 
 def innersquare(cube):
     """
-    Get the central square (in spatial directions) of the spectral cube (useful for calculating the
-    rms in a PB corrected spectral cube). Can be used for 2 and 3 dimensions, in the latter case the
-    velocity axis is left unchanged.
+    Get the central square (in spatial directions) of the spectral cube. Can 
+    also be used on a 2D array. If the central part is empty, the original 
+    array is returned.
     
     Parameters
     ----------
-    cube : 2D or 3D array
+    cube : 2D or 3D numpy array
         3D array input cube or 2D image
         
     Returns
@@ -30,6 +30,7 @@ def innersquare(cube):
         stop_y = int(cube.shape[2] / 2 + cube.shape[1] / 8)
         inner_square = cube[:, start_x:stop_x, start_y:stop_y]
         
+        # if "inner_square" is empty, return the cube instead.
         if (inner_square == inner_square).any():
             return inner_square
         else:
@@ -50,34 +51,39 @@ def innersquare(cube):
         raise AttributeError('Please provide a 2D or 3D array.')
 
 
-def beam_area(cube, cellsize):
-    return (np.pi * (cube.header['BMAJ'] / cellsize) * 
-            (cube.header['BMIN'] / cellsize)) / (4 * np.log(2))
-
-
 def new_header(header):
     """
-    Change the 3D header to the corresponding 2D one.
+    Change the 3D header to the corresponding 2D one, assuming the velocity
+    axis has been collapsed.
 
     Parameters
     ----------
     header : FITS header
-        Corresponding to the data cube.
+        The original FITS header containing 3D information.
 
     Returns
     -------
     header : FITS header
-        Corresponding to the 2D image created from the 3D data cube.
+        The same header but with 3D information removed.
 
     """
 
     header = header.copy()
+    
+    header['NAXIS'] = 3
+    
+    try:
+        header['WCSAXES'] = 2
+    except:
+        pass
 
     header.pop('CTYPE3')
     header.pop('CRVAL3')
     header.pop('CDELT3')
     header.pop('CRPIX3')
     header.pop('CUNIT3')
+    header.pop('NAXIS3')
+    
     try:
         header.pop('PC3_1')
         header.pop('PC3_2')
@@ -85,19 +91,11 @@ def new_header(header):
         header.pop('PC2_3')
         header.pop('PC3_3')
     except:
-        pass
-    header.pop('NAXIS3')
-    
-    header['NAXIS'] = 3
-    try:
-        header['WCSAXES'] = 2
-    except:
-        pass
+        pass 
 
     return header
 
 
-def create_vel_array(galaxy, cube, spec_res=10, savepath=None):
     """
     Creates the velocity array corresponding to the spectral axis
     of the cube in km/s.
@@ -123,6 +121,41 @@ def create_vel_array(galaxy, cube, spec_res=10, savepath=None):
                                                 the spatial dimensions).
     vel_array_full : 1D numpy array
         Same as vel_array but for the entire spectral axis.
+
+    """
+
+
+def create_vel_array(galaxy, cube, spec_res=10, savepath=None):
+    """
+    Creates the velocity array corresponding to the spectral axis
+    of the cube in km/s.
+
+    Parameters
+    ----------
+    galaxy : string
+        Name of the galaxy for which the velocity array is created.
+    cube : FITS image
+        Containing the 3D data cube and corresponding header.
+    spec_res : int or float, optional
+        The spectral resolution of the data cube in km/s. The default is 10.
+    savepath : string, optional
+        The location in which the array is saved. If not provided,  The default is None.
+
+    Raises
+    ------
+    KeyError
+        DESCRIPTION.
+
+    Returns
+    -------
+    vel_array : TYPE
+        DESCRIPTION.
+    vel_narray : TYPE
+        DESCRIPTION.
+    vel_array_full : TYPE
+        DESCRIPTION.
+    v_step : TYPE
+        DESCRIPTION.
 
     """
 
@@ -171,43 +204,6 @@ def create_vel_array(galaxy, cube, spec_res=10, savepath=None):
 
 
 def calc_moms(cube, galaxy, glob_cat, spec_res=10, savepath=None, units='K km/s', alpha_co=4.35, R21=0.7):
-    """
-    Clip the spectral cube according to the desired method (either the 
-    method Pythonified by Jiayi Sun or the more basic smooth + clip 
-    strategy from Dame+11), and create moment 0, 1, and 2 maps. Saves maps 
-    as fits files if so desired. Also calculate the systemic velocity from 
-    the moment 1 map.
-
-    Parameters
-    ----------
-    units : str, optional
-        Preferred units (either 'Jy/beam km/s' or 'M_Sun/pc^2'). The default is 
-                         'Jy/beam km/s'.
-    alpha_co : float, optional
-        In case units == 'M_Sun/pc^2', multiply the moment 0 map by this 
-        factor to obtain these units. The default is 5.4, which is the 
-        value for CO(2-1) quoted in https://arxiv.org/pdf/1805.00937.pdf.
-
-    Raises
-    ------
-    AttributeError
-        Raised if units is set to anything other than 'K km/s' or 
-        'M_Sun/pc^2'.
-
-    Returns
-    -------
-    cube : FITS file
-        3D spectral line cube for which the moment maps will be calculated.
-    mom0_hdu : FITS file
-        Contains the moment 0 map + corresponding header.
-    mom1_hdu : FITS file
-        Contains the moment 1 map + corresponding header.
-    mom2_hdu : FITS file
-        Contains the moment 2 map + corresponding header.
-    sysvel : float
-        Systemic velocity of the gas in the system in km/s.
-
-    """
 
     vel_array, vel_narray, vel_fullarray, dv = create_vel_array(galaxy, cube, spec_res=spec_res, savepath=savepath)
 
@@ -363,7 +359,7 @@ def calc_moms(cube, galaxy, glob_cat, spec_res=10, savepath=None, units='K km/s'
     return mom0_hdu, mom1_hdu, mom2_hdu
     
 def calc_uncs(cube, path, galaxy, glob_cat, savepath, ifu_match, spec_res=10, units='K km/s', 
-              alpha_co=4.35, R21=0.7, lw=30, ul=3, pb_thresh=40, detection=True):
+              alpha_co=4.35, R21=0.7, lw=30, ul=3, pb_thresh=40, detection=True, clipped_cube=None):
     
     # Calculate the number of channels by converting the cube into a boolean
     cube_bool = cube.data.copy()
@@ -425,16 +421,18 @@ def calc_uncs(cube, path, galaxy, glob_cat, savepath, ifu_match, spec_res=10, un
     
     pb_cube.data[cube_bool.data != cube_bool.data] = np.nan
 
-    if detection:
-        noise_cube = cube.header['CLIP_RMS'] / pb_cube.data
+    if clipped_cube is not None:
+        noise_cube = clipped_cube.header['CLIP_RMS'] / pb_cube.data
     else:
         inner_square = innersquare(cube_uncorr.data)
         noise_cube = np.nanstd(inner_square) / pb_cube.data
-        noise_cube[pb_cube.data < pb_thresh/100] = np.nan
     
     # Use the median value of the PB cube along the spectral axis to create a 
     # representative 2D map.
     noise_map = np.nanmedian(noise_cube, axis=0)
+
+    if not detection:
+        noise_map[np.nanmedian(pb_cube.data, axis=0) < pb_thresh/100] = np.nan
     
     # Set redshift parameters needed for physical unit calculations
     glob_tab = fits.open(glob_cat)[1]        
@@ -450,9 +448,9 @@ def calc_uncs(cube, path, galaxy, glob_cat, savepath, ifu_match, spec_res=10, un
             mom0_uncertainty = noise_map * np.sqrt(N_map) * abs(cube.header['CDELT3'])
 
     elif cube.header['CUNIT3'] != 'km s-1':
-        mom0_uncertainty = noise_map * lw * ul * np.sqrt(lw / abs(cube.header['CDELT3'] / 1000))
+        mom0_uncertainty = noise_map * abs(cube.header['CDELT3']) / 1000 * ul * np.sqrt(lw / abs(cube.header['CDELT3'] / 1000))
     else:
-        mom0_uncertainty = noise_map * lw * ul * np.sqrt(lw / abs(cube.header['CDELT3']))
+        mom0_uncertainty = noise_map * abs(cube.header['CDELT3']) * ul * np.sqrt(lw / abs(cube.header['CDELT3']))
 
     mom0_uncertainty[np.isinf(mom0_uncertainty)] = np.nan
     mom0_uncertainty[mom0_uncertainty <= 0] = np.nan
@@ -662,7 +660,6 @@ def perform_moment_creation(path, data_path, detections, non_detections, glob_ca
         cube_fits = fits.open(cube[0])[0]
         cube_raw_fits = fits.open(cube_raw[0])[0]
 
-        '''
         calc_moms(cube_fits, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, units='K km/s', alpha_co=4.35, R21=0.7)
         calc_moms(cube_fits, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, units='K km/s pc^2', alpha_co=4.35, R21=0.7)
         calc_moms(cube_fits, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, units='Msol pc-2', alpha_co=4.35, R21=0.7)
@@ -678,17 +675,17 @@ def perform_moment_creation(path, data_path, detections, non_detections, glob_ca
         calc_uncs(cube_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, ifu_match=ifu_match,
                   units='Msol/pix', alpha_co=4.35, R21=0.7, detection=True)
         '''
+        calc_uncs(cube_raw_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, ifu_match=ifu_match,
+                  clipped_cube=cube_fits, units='K km/s', alpha_co=4.35, R21=0.7, detection=False, lw=30, ul=3, pb_thresh=pb_thresh)
+        calc_uncs(cube_raw_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, ifu_match=ifu_match,
+                  clipped_cube=cube_fits, units='K km/s pc^2', alpha_co=4.35, R21=0.7, detection=False, lw=30, ul=3, pb_thresh=pb_thresh)
+        calc_uncs(cube_raw_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, ifu_match=ifu_match,
+                  clipped_cube=cube_fits, units='Msol pc-2', alpha_co=4.35, R21=0.7, detection=False, lw=30, ul=3, pb_thresh=pb_thresh)
+        calc_uncs(cube_raw_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, ifu_match=ifu_match,
+                  clipped_cube=cube_fits, units='Msol/pix', alpha_co=4.35, R21=0.7, detection=False, lw=30, ul=3, pb_thresh=pb_thresh)
+        '''
 
-        calc_uncs(cube_raw_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, ifu_match=ifu_match,
-                  units='K km/s', alpha_co=4.35, R21=0.7, detection=False, lw=30, ul=3, pb_thresh=pb_thresh)
-        calc_uncs(cube_raw_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, ifu_match=ifu_match,
-                  units='K km/s pc^2', alpha_co=4.35, R21=0.7, detection=False, lw=30, ul=3, pb_thresh=pb_thresh)
-        calc_uncs(cube_raw_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, ifu_match=ifu_match,
-                  units='Msol pc-2', alpha_co=4.35, R21=0.7, detection=False, lw=30, ul=3, pb_thresh=pb_thresh)
-        calc_uncs(cube_raw_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, ifu_match=ifu_match,
-                  units='Msol/pix', alpha_co=4.35, R21=0.7, detection=False, lw=30, ul=3, pb_thresh=pb_thresh)
-    
-            
+    '''
     for galaxy in non_detections:
 
         print(galaxy)
@@ -712,7 +709,7 @@ def perform_moment_creation(path, data_path, detections, non_detections, glob_ca
                   units='Msol pc-2', alpha_co=4.35, R21=0.7, detection=False, lw=30, ul=3, pb_thresh=pb_thresh)
         calc_uncs(cube_fits, data_path, galaxy, glob_cat=glob_cat, spec_res=spec_res, savepath=path, ifu_match=ifu_match,
                   units='Msol/pix', alpha_co=4.35, R21=0.7, detection=False, lw=30, ul=3, pb_thresh=pb_thresh)
-
+        '''
 
 
 if __name__ == '__main__':
