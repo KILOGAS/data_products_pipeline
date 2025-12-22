@@ -11,8 +11,29 @@ import pandas as pd
 def gauss(x, a, x0, sigma):
     return a * np.exp(-(x - x0) ** 2 / (2 * sigma ** 2))
 
-def calc_beam_area(bmaj,bmin,cellsize=1):
-    return (np.pi*(bmaj/cellsize)*(bmin/cellsize))/(4*np.log(2))
+def calc_beam_area(bmaj, bmin, cellsize):
+    """
+
+    Parameters
+    ----------
+    bmaj : float
+        Beam major axis length.
+    bmin : float
+        Beam minor axis length.
+    cellsize : float
+        The resolution (pixel size) of the cube in the same units as "bmaj" and "bmin" / pixel.
+
+    Returns
+    -------
+    beam_area : float
+        The beam area in the same units as "bmaj" and "bmin".
+
+    """
+
+    beam_area = (np.pi * (bmaj / cellsize) * 
+            (bmin / cellsize)) / (4 * np.log(2))
+    
+    return beam_area
 
 def brightness_temp_to_flux_dens(T, bmaj, bmin, nu=230.538):
     return T * nu ** 2 * bmaj * bmin / 1.222e3
