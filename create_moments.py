@@ -329,10 +329,10 @@ def calc_moms(
         / np.nansum(abs(cube.data), axis=0)
     )
 
-    # Calculate the systemic velocity from the spatial inner part of the cube
+    # Estimate the systemic velocity from the spatial inner part of the cube 
+    
     if subtract_vsys:
         inner_cube = innersquare(mom1)
-
         vsys = np.nanmean(inner_cube)
         mom1 -= vsys
 
@@ -1286,6 +1286,7 @@ def calc_uncs(
                     mom0_uncertainty / mom0_hdu.data
                 )  # Eqn 15 doc. Chris
             mom1_uncertainty_hdu = fits.PrimaryHDU(mom1_uncertainty, mom1_hdu.header)
+            mom1_uncertainty_hdu.header["BTYPE"] = "velocity error"
 
             if cube.header["CUNIT3"] != "km s-1":
                 mom2_uncertainty = (
@@ -1304,6 +1305,7 @@ def calc_uncs(
                 )  # Eqn 30 doc. Chris
 
             mom2_uncertainty_hdu = fits.PrimaryHDU(mom2_uncertainty, mom2_hdu.header)
+            mom2_uncertainty_hdu.header["BTYPE"] = "obs. line width error"
 
             if spec_res == 10:
                 mom1_uncertainty_hdu.writeto(
@@ -1711,7 +1713,7 @@ def perform_moment_creation(
 
 
 if __name__ == "__main__":
-    path = "/arc/projects/KILOGAS/products/v1.0/matched/"
+    path = "/arc/projects/KILOGAS/products/v1.1/matched/"
     data_path = "/arc/projects/KILOGAS/cubes/v1.0/matched/"
 
     targets = [
