@@ -2,7 +2,7 @@ import matplotlib
 matplotlib.use('Agg')
 import smooth_and_clip
 #import KILOGAS_smooth_clip_script_IFU_matched_Dame
-import create_moments_dev
+import create_moments
 import image_moments_dev
 import create_spectrum
 import numpy as np
@@ -14,7 +14,7 @@ import shutil
 
 if __name__ == '__main__':
     
-    ifu_match = False
+    ifu_match = True
     local = False
     clear_save_directory = False
     version = 1.1
@@ -57,12 +57,9 @@ if __name__ == '__main__':
     non_detections = ['KGAS' + str(target) for target, flag in zip(target_id, detected) if not flag]
     targets = ['KGAS' + str(target) for target in target_id]
 
-    #targets = ['KGAS55', 'KGAS61', 'KGAS84', 'KGAS107', 'KGAS108', 'KGAS112', 'KGAS146', 'KGAS325']
-    #detections = ['KGAS55', 'KGAS61', 'KGAS84', 'KGAS107', 'KGAS108', 'KGAS112', 'KGAS146', 'KGAS325']
-
-    #targets = ['KGAS73', 'KGAS128', 'KGAS184', 'KGAS255', 'KGAS262', 'KGAS288', 'KGAS328', 'KGAS371', 'KGAS397']
-    #non_detections = ['KGAS73', 'KGAS128', 'KGAS184', 'KGAS255', 'KGAS262', 'KGAS288', 'KGAS328', 'KGAS371', 'KGAS397']
-    #detections = []
+    targets = ['KGAS107']
+    detections = ['KGAS107']
+    non_detections = []
     
     if clear_save_directory:
         for galaxy in non_detections:
@@ -79,12 +76,11 @@ if __name__ == '__main__':
     #                                        targets=detections, chans2do=chans2do, kms=spec_res, 
     #                                        pb_thresh=pb_thresh, prune_by_npix=prune_by_npix,
     #                                       ifu_match=ifu_match)
-    create_moments_dev.perform_moment_creation(path=save_path, data_path=main_directory, detections=detections, 
+    create_moments.perform_moment_creation(path=save_path, data_path=main_directory, detections=detections, 
                                                non_detections=non_detections, glob_cat=glob_cat, spec_res=spec_res, ifu_match=ifu_match, pb_thresh=pb_thresh)
-    #image_moments_dev.perform_moment_imaging(glob_path=save_path, targets=detections, spec_res=spec_res)
+    image_moments_dev.perform_moment_imaging(glob_path=save_path, targets=detections, chans2do=chans2do, spec_res=spec_res)
     #create_spectrum.get_all_spectra(read_path=main_directory, save_path=save_path, targets=targets, 
     #                                target_id=target_id, detected=detected, chans2do=chans2do, glob_cat=glob_cat, ifu_match=ifu_match, spec_res=spec_res)
-
 
 
 
