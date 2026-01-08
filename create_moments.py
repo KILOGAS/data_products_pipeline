@@ -1,6 +1,5 @@
 from astropy.io import fits
 import numpy as np
-from matplotlib import pyplot as plt
 from glob import glob
 import os
 from astropy.cosmology import FlatLambdaCDM
