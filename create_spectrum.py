@@ -523,6 +523,10 @@ def get_all_spectra(
 
 
 if __name__ == "__main__":
+    
+    # NOTE: all hardcoded for now as it isn't really used, but can improve
+    # to take user input.
+    
     spec_res = 10
 
     read_path = "/arc/projects/KILOGAS/cubes/v1.0/matched/"

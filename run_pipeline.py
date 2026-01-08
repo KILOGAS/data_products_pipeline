@@ -1,19 +1,21 @@
 import matplotlib
-matplotlib.use('Agg')
+
+matplotlib.use("Agg")
 import smooth_and_clip
-#import KILOGAS_smooth_clip_script_IFU_matched_Dame
 import create_moments
 import image_moments_dev
 import create_spectrum
 import numpy as np
-import warnings; warnings.filterwarnings("ignore")
-from glob import glob
+import warnings
+
+warnings.filterwarnings("ignore")
+# from glob import glob
 import os
 import shutil
 
 
-if __name__ == '__main__':
-    
+if __name__ == "__main__":
+    # Set parameters deciding which products are made for which cubes
     ifu_match = True
     local = False
     clear_save_directory = False
@@ -22,48 +24,58 @@ if __name__ == '__main__':
     pb_thresh = 40
     prune_by_npix = None
 
-    #targets = [d.split('/')[-1] for d in glob(main_directory + '*') if os.path.isdir(d) and os.listdir(d)]
+    # targets = [d.split('/')[-1] for d in glob(main_directory + '*') if os.path.isdir(d) and os.listdir(d)]
 
+    # Set paths for either running the script locally or on Canfar
     if local:
-        main_directory = '/mnt/ExtraSSD/ScienceProjects/KILOGAS/Full_sample_22_April/matched/'
+        main_directory = ""
         save_path = main_directory
-        detected = np.genfromtxt('/mnt/ExtraSSD/ScienceProjects/KILOGAS/KGAS_chans2do_v_detected.csv', 
-                          delimiter=',', skip_header=1, usecols=[6], dtype=bool)
-        target_id = np.genfromtxt('/mnt/ExtraSSD/ScienceProjects/KILOGAS/KGAS_chans2do_v_detected.csv', 
-                          delimiter=',', skip_header=1, usecols=[0], dtype=int)
-        chans2do = '/mnt/ExtraSSD/ScienceProjects/KILOGAS/KGAS_chans2do.fits'
-        glob_cat = '/mnt/ExtraSSD/ScienceProjects/KILOGAS/KILOGAS_global_catalog_FWHM.fits'
-    else: 
+        # detected = np.genfromtxt('')
+        # target_id = np.genfromtxt('')
+        chans2do = ""
+        glob_cat = ""
+    else:
         if ifu_match:
-            main_directory = '/arc/projects/KILOGAS/cubes/v1.0/matched/'
-            save_path = '/arc/projects/KILOGAS/products/v' + str(version) + '/matched/'
+            main_directory = "/arc/projects/KILOGAS/cubes/v1.0/matched/"
+            save_path = "/arc/projects/KILOGAS/products/v" + str(version) + "/matched/"
         else:
-            main_directory = '/arc/projects/KILOGAS/cubes/v1.0/nyquist/'
-            save_path = '/arc/projects/KILOGAS/products/v' + str(version) + '/original/'
-        #chans2do = 'KGAS_chans2do.fits'
-        #chans2do = 'KGAS_chans2do_v_detected.csv'
-        chans2do = 'KGAS_chans2do_v_optical_Sept25.csv'
+            main_directory = "/arc/projects/KILOGAS/cubes/v1.0/nyquist/"
+            save_path = "/arc/projects/KILOGAS/products/v" + str(version) + "/original/"
+        chans2do = "KGAS_chans2do_v_optical_Sept25.csv"
         if spec_res == 10:
-            detected = np.genfromtxt(chans2do, 
-                              delimiter=',', skip_header=1, usecols=[6], dtype=bool)
+            detected = np.genfromtxt(
+                chans2do, delimiter=",", skip_header=1, usecols=[6], dtype=bool
+            )
         elif spec_res == 30:
-            detected = np.genfromtxt(chans2do, 
-                              delimiter=',', skip_header=1, usecols=[7], dtype=bool)
-        target_id = np.genfromtxt(chans2do, 
-                          delimiter=',', skip_header=1, usecols=[0], dtype=int)
-        glob_cat = 'KILOGAS_global_catalog_FWHM.fits'
+            detected = np.genfromtxt(
+                chans2do, delimiter=",", skip_header=1, usecols=[7], dtype=bool
+            )
+        target_id = np.genfromtxt(
+            chans2do, delimiter=",", skip_header=1, usecols=[0], dtype=int
+        )
+        glob_cat = "KILOGAS_global_catalog_FWHM.fits"
 
-    detections = ['KGAS' + str(target) for target, flag in zip(target_id, detected) if flag]
-    non_detections = ['KGAS' + str(target) for target, flag in zip(target_id, detected) if not flag]
-    targets = ['KGAS' + str(target) for target in target_id]
+    # Create lists of detections, non detections, and all targets depending on
+    # how they are flagged in the global table.
+    detections = [
+        "KGAS" + str(target) for target, flag in zip(target_id, detected) if flag
+    ]
+    non_detections = [
+        "KGAS" + str(target) for target, flag in zip(target_id, detected) if not flag
+    ]
+    targets = ["KGAS" + str(target) for target in target_id]
 
-    targets = ['KGAS107']
-    detections = ['KGAS107']
-    non_detections = []
-    
+    # The above lists can be manually overwritten for debugging purposes or in
+    # case products are made for specific galaxies
+    # targets = ['KGAS107']
+    # detections = ['KGAS107']
+    # non_detections = []
+
+    # The below will empty the overall directory in which the products are saved
+    # before storing the new products there.
     if clear_save_directory:
         for galaxy in non_detections:
-            directory = os.path.join(save_path, galaxy)    
+            directory = os.path.join(save_path, galaxy)
             for root, dirs, files in os.walk(directory, topdown=False):
                 for name in files:
                     file_path = os.path.join(root, name)
@@ -71,29 +83,44 @@ if __name__ == '__main__':
                 for name in dirs:
                     dir_path = os.path.join(root, name)
                     shutil.rmtree(dir_path)
-    
-    #smooth_and_clip.perform_smooth_and_clip(read_path=main_directory, save_path=save_path, 
-    #                                        targets=detections, chans2do=chans2do, kms=spec_res, 
-    #                                        pb_thresh=pb_thresh, prune_by_npix=prune_by_npix,
-    #                                       ifu_match=ifu_match)
-    create_moments.perform_moment_creation(path=save_path, data_path=main_directory, detections=detections, 
-                                               non_detections=non_detections, glob_cat=glob_cat, spec_res=spec_res, ifu_match=ifu_match, pb_thresh=pb_thresh)
-    image_moments_dev.perform_moment_imaging(glob_path=save_path, targets=detections, chans2do=chans2do, spec_res=spec_res)
-    #create_spectrum.get_all_spectra(read_path=main_directory, save_path=save_path, targets=targets, 
-    #                                target_id=target_id, detected=detected, chans2do=chans2do, glob_cat=glob_cat, ifu_match=ifu_match, spec_res=spec_res)
 
+    # The below calls the script to make the various products. Toggle on and off
+    # as desired. Note that S+C will have to be done before creating moments, but
+    # spectra can be created independently.
+    smooth_and_clip.perform_smooth_and_clip(
+        read_path=main_directory,
+        save_path=save_path,
+        targets=detections,
+        chans2do=chans2do,
+        kms=spec_res,
+        pb_thresh=pb_thresh,
+        prune_by_npix=prune_by_npix,
+        ifu_match=ifu_match,
+    )
 
+    create_moments.perform_moment_creation(
+        path=save_path,
+        data_path=main_directory,
+        detections=detections,
+        non_detections=non_detections,
+        glob_cat=glob_cat,
+        spec_res=spec_res,
+        ifu_match=ifu_match,
+        pb_thresh=pb_thresh,
+    )
 
+    image_moments_dev.perform_moment_imaging(
+        glob_path=save_path, targets=detections, chans2do=chans2do, spec_res=spec_res
+    )
 
-
-
-
-
-
-
-
-
-
-
-
-
+    create_spectrum.get_all_spectra(
+        read_path=main_directory,
+        save_path=save_path,
+        targets=targets,
+        target_id=target_id,
+        detected=detected,
+        chans2do=chans2do,
+        glob_cat=glob_cat,
+        ifu_match=ifu_match,
+        spec_res=spec_res,
+    )

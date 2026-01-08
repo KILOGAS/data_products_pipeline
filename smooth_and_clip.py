@@ -18,7 +18,7 @@ def perform_smooth_and_clip(read_path, save_path, targets, chans2do, kms=10, pb_
     from astropy.table import Table
     import numpy as np
     import os
-    from create_moments_dev import create_vel_array
+    from create_moments import create_vel_array
     import pandas as pd
     
     ## Main functions which will be used for the smoothing and clipping.
@@ -140,7 +140,7 @@ def perform_smooth_and_clip(read_path, save_path, targets, chans2do, kms=10, pb_
         vminchan = df['minchan_v'].iloc[idx].iloc[0]
         vmaxchan = df['maxchan_v'].iloc[idx].iloc[0]
         
-        _, _, vel_array, _ = create_vel_array(galaxy, cube)
+        vel_array, _, _ = create_vel_array(galaxy, cube)
         minchan = np.argmin(abs(vel_array - vminchan))
         maxchan = np.argmin(abs(vel_array - vmaxchan))
 
@@ -163,5 +163,4 @@ if __name__ == '__main__':
         
 
         
-
 
