@@ -1713,6 +1713,14 @@ def perform_moment_creation(
 
 
 if __name__ == "__main__":
+    
+    # NOTE: all hardcoded for now as it isn't really used, but can improve
+    # to take user input.
+    
+    spec_res = 10
+    ifu_match = False
+    pb_thresh = 40    
+    
     path = "/arc/projects/KILOGAS/products/v1.1/matched/"
     data_path = "/arc/projects/KILOGAS/cubes/v1.0/matched/"
 
@@ -1742,10 +1750,6 @@ if __name__ == "__main__":
 
     glob_cat = "KILOGAS_global_catalog_FWHM.fits"
 
-    spec_res = 10
-    ifu_match = False
-    pb_thresh = 40
-
     perform_moment_creation(
         path=path,
         data_path=data_path,
@@ -1756,3 +1760,4 @@ if __name__ == "__main__":
         ifu_match=ifu_match,
         pb_thresh=pb_thresh,
     )
+    
