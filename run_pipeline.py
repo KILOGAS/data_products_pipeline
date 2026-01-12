@@ -3,7 +3,7 @@ import matplotlib
 matplotlib.use("Agg")
 import smooth_and_clip
 import create_moments
-import image_moments_dev
+import image_moments
 import create_spectrum
 import numpy as np
 import warnings
@@ -121,6 +121,5 @@ if __name__ == "__main__":
         detected=detected,
         chans2do=chans2do,
         glob_cat=glob_cat,
-        ifu_match=ifu_match,
         spec_res=spec_res,
     )
