@@ -299,6 +299,7 @@ def calc_moms(
         mom0 *= 1 + z
 
         # Correct for inclination by multiplying by b/a
+        # NOTE: This is currently hardcoded until the inclinations are stored somewhere more permanently.
         inc_table = fits.open("KGAS_global_master.fits")[1]
         ba = inc_table.data["ba"][
             inc_table.data["KGID"] == int(galaxy.split("KGAS")[1])
