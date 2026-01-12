@@ -1,279 +1,582 @@
-import matplotlib; matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 import aplpy as apl
 from astropy.io import fits
 import numpy as np
 import config_figs
-from sauron_colormap import register_sauron_colormap; register_sauron_colormap()
-from targets import galaxies
-from create_moments import MomentMaps
-from clip_cube import ClipCube
-from matplotlib.colors import ListedColormap
+from sauron_colormap import register_sauron_colormap
+
+try:
+    register_sauron_colormap()
+except:
+    pass
+from glob import glob
+from matplotlib.ticker import FuncFormatter
+import pandas as pd
 
 
-class CreateImages:
+def moment_zero(
+    mom0, galaxy, path, spec_res=10, savename=None, units="K km/s", peak=False
+):
+    """
+    Create a moment zero image from the FITS file and save to png and pdf.
 
-    def __init__(self, galaxy, path_pbcorr, path_uncorr, savepath=None, tosave=False):
-        self.galaxy = galaxy
-        self.path_pbcorr = path_pbcorr
-        self.path_uncorr = path_uncorr
-        self.savepath = savepath or './'
-        self.tosave = tosave
+    Parameters
+    ----------
+    mom0 : HDU list.
+        Contains the FITS image of the moment zero map and corresponding header.
+    galaxy : string
+        Name of the galaxy to be imaged.
+    path : string
+        Path to the general directory in which the images should be saved.
+    spec_res : float, optional
+        Spectral resolution of the cube for which the moment map is being imaged.
+        Options are 10 or 30. The default is 10.
+    savename : string, optional
+        Name of the image file to be saved. The default is None.
+    units : string, optional
+        Units of the moment zero map. The default is 'K km/s'. NOTE THAT THIS
+        SHOULD JUST BE READ FROM THE HEADER INSTEAD.
+    peak : bool, optional
+        Whether or not to make a peak temperature map instead of a moment zero map. The default is False.
 
+    Raises
+    ------
+    AttributeError
+        Raised if units are requested which are not possible.
 
-    def moment_zero(self, units='M_Sun/pc^2', path='', alpha_co=5.4, peak=False):
+    Returns
+    -------
+    None
 
-        if peak:
-            if self.refresh:
-                if self.overwrite:
-                    image = MomentMaps(self.galaxy.name, self.path_pbcorr, self.path_uncorr, sun=self.sun,
-                                                    savepath=self.savepath, tosave=True, sample=self.sample,
-                                       redo_clip=self.redo_clip).peak_temperature()
-                else:
-                    image = MomentMaps(self.galaxy.name, self.path_pbcorr, self.path_uncorr, sun=self.sun,
-                                                    tosave=False, sample=self.sample, redo_clip=self.redo_clip).\
-                        peak_temperature()
-            else:
-                image = fits.open(path + 'peakT.fits')[0]
+    """
 
-        elif self.refresh:
-            if units == 'M_Sun/pc^2':
-                if self.overwrite:
-                    _, image, _, _, _ = MomentMaps(self.galaxy.name, self.path_pbcorr, self.path_uncorr, sun=self.sun,
-                                            savepath=self.savepath, tosave=True, sample=self.sample,
-                                            redo_clip=self.redo_clip).calc_moms(units='M_Sun/pc^2', alpha_co=alpha_co)
-                else:
-                    _, image, _, _, _ = MomentMaps(self.galaxy.name, self.path_pbcorr, self.path_uncorr, sun=self.sun,
-                                                    tosave=False, sample=self.sample, redo_clip=self.redo_clip).\
-                        calc_moms(units='M_Sun/pc^2')
-            elif units == 'K km/s':
-                if self.overwrite:
-                    _, image, _, _, _ = MomentMaps(self.galaxy.name, self.path_pbcorr, self.path_uncorr, sun=self.sun,
-                                                    savepath=self.savepath, tosave=True, sample=self.sample,
-                                                   redo_clip=self.redo_clip).calc_moms(units='K km/s')
-                else:
-                    _, image, _, _, _ = MomentMaps(self.galaxy.name, self.path_pbcorr, self.path_uncorr, sun=self.sun,
-                                                    tosave=False, sample=self.sample, redo_clip=self.redo_clip).\
-                        calc_moms(units='K km/s')
-            else:
-                raise AttributeError('Please choose between "K km/s" and "M_Sun/pc^2"')
-        elif units == 'M_Sun/pc^2':
-            image = fits.open(self.savepath + '_mom0_Msolpc-2.fits')[0]
+    fig = plt.figure(figsize=(11, 8))
+    f = apl.FITSFigure(mom0, figure=fig)
+
+    # Add the galaxy name in the upper right corner
+    f.add_label(0.8, 0.9, galaxy, relative=True, size=30)
+
+    # Overlay filled contours on the image to make it look smooth
+    f.show_contour(
+        mom0,
+        cmap="magma_r",
+        levels=np.linspace(np.nanmax(mom0.data) * 1e-9, np.nanmax(mom0.data), 20),
+        filled=True,
+        overlap=True,
+    )
+
+    # Adjust and ticks
+    f.ticks.set_color("black")
+    f.ticks.set_length(10)
+    f.ticks.set_linewidth(2)
+    f.tick_labels.set_xformat("hh:mm:ss")
+    f.tick_labels.set_yformat("dd:mm:ss")
+    plt.rcParams["xtick.direction"] = "in"
+    plt.rcParams["ytick.direction"] = "in"
+    f.ticks.set_minor_frequency(5)
+
+    # Add a colourbar
+    colors = plt.contourf(
+        [[0, 0], [0, 0]],
+        levels=np.linspace(0, np.nanmax(mom0.data) + np.nanmax(mom0.data) * 0.05, 20),
+        cmap="magma_r",
+    )
+
+    # Create tick labels at intuitive intervals
+    if units == "K km/s" or units == "Msol pc-2" or peak:
+        if np.nanmax(mom0.data) < 0.1:
+            ticks = np.arange(0, np.nanmax(mom0.data) + 0.015, 0.005)
+        elif np.nanmax(mom0.data) < 0.5:
+            ticks = np.arange(0, np.nanmax(mom0.data) + 0, 0.05)
+        elif np.nanmax(mom0.data) < 1:
+            ticks = np.arange(0, np.nanmax(mom0.data) + 0.1, 0.1)
+        elif np.nanmax(mom0.data) < 2:
+            ticks = np.arange(0, np.nanmax(mom0.data) + 0.2, 0.2)
+        elif np.nanmax(mom0.data) < 5:
+            ticks = np.arange(0, np.nanmax(mom0.data) + 0.5, 0.5)
+        elif np.nanmax(mom0.data) < 10:
+            ticks = np.arange(0, np.nanmax(mom0.data) + 1, 1)
+        elif np.nanmax(mom0.data) < 20:
+            ticks = np.arange(0, np.nanmax(mom0.data) + 1, 2)
+        elif np.nanmax(mom0.data) < 100:
+            ticks = np.arange(0, np.nanmax(mom0.data) + 5, 10)
+        elif np.nanmax(mom0.data) < 200:
+            ticks = np.arange(0, np.nanmax(mom0.data) + 10, 20)
+        elif np.nanmax(mom0.data) < 1000:
+            ticks = np.arange(0, np.nanmax(mom0.data) + 20, 40)
         else:
-            image = fits.open(self.savepath + '_mom0_Kkms-1.fits')[0]
+            ticks = np.arange(0, np.nanmax(mom0.data) + 100, 200)
 
-        f = plt.figure(figsize=self.galaxy.figsize)
+        cbar = fig.colorbar(colors, ticks=ticks)
 
-        # show the image in colour
-        fig = apl.FITSFigure(image, figure=f)
-        fig.set_theme('publication')
+    # In case of these units the numbers are large, so need to be treated
+    # differently
+    elif units == "K km/s pc^2" or units == "Msol/pix":
+        # Extract the base and exponent of the maximum in the moment 0 map
+        # if the number was written in scientific format
+        exponent = np.floor(np.log10(np.nanmax(mom0.data)))
+        base = np.nanmax(mom0.data) / (10**exponent)
 
-        # add the galaxy name in the upper right corner
-        fig.add_label(0.8, 0.9, self.galaxy.name, relative=True, size=20)
-
-        fig.show_contour(image, cmap='magma_r', levels=np.linspace(np.amax(image.data)*1e-9, np.amax(image.data), 20),
-                         filled=True, overlap=True)
-
-        # axes and ticks
-        fig.ticks.set_color('black')
-        fig.ticks.set_length(10)
-        fig.ticks.set_linewidth(2)
-        fig.tick_labels.set_xformat('hh:mm:ss')
-        fig.tick_labels.set_yformat('dd:mm:ss')
-        plt.rcParams['xtick.direction'] = 'in'
-        plt.rcParams['ytick.direction'] = 'in'
-        fig.ticks.set_minor_frequency(5)
-
-        # add a colourbar
-        colors = plt.contourf([[0, 0], [0, 0]],
-                              levels=np.linspace(0, np.amax(image.data) + np.amax(image.data) * 0.05, 20),
-                              cmap='magma_r')
-
-        if np.amax(image.data) < 0.1:
-            ticks = np.arange(0, np.amax(image.data) + 0.015, 0.005)
-        if np.amax(image.data) < 0.5:
-            ticks = np.arange(0, np.amax(image.data) + 0, 0.05)
-        elif np.amax(image.data) < 1:
-            ticks = np.arange(0, np.amax(image.data) + 0.1, 0.1)
-        elif np.amax(image.data) < 2:
-            ticks = np.arange(0, np.amax(image.data) + 0.2, 0.2)
-        elif np.amax(image.data) < 5:
-            ticks = np.arange(0, np.amax(image.data) + 0.5, 0.5)
-        elif np.amax(image.data) < 10:
-            ticks = np.arange(0, np.amax(image.data) + 1, 1)
-        elif np.amax(image.data) < 20:
-            ticks = np.arange(0, np.amax(image.data) + 1, 2)
-        elif np.amax(image.data) < 100:
-            ticks = np.arange(0, np.amax(image.data) + 5, 10)
-        elif np.amax(image.data) < 200:
-            ticks = np.arange(0, np.amax(image.data) + 10, 20)
-        elif np.amax(image.data) < 1000:
-            ticks = np.arange(0, np.amax(image.data) + 20, 40)
+        # Create intuitive locations for the tick marks depending on the max.
+        # base number
+        if base < 0.1:
+            ticks = np.arange(0, base, 0.005)
+        elif base < 0.5:
+            ticks = np.arange(0, base, 0.05)
+        elif base < 1:
+            ticks = np.arange(0, base, 0.1)
+        elif base < 2:
+            ticks = np.arange(0, base, 0.2)
+        elif base < 5:
+            ticks = np.arange(0, base, 0.5)
         else:
-            ticks = np.arange(0, np.amax(image.data) + 100, 200)
+            ticks = np.arange(0, base, 1)
 
-        cbar = f.colorbar(colors, ticks=ticks)
-        if peak:
-            if self.sample == 'viva' or self.sample == 'things' or self.sample == None:
-                cbar.set_label('Peak temperature [Jy b$^{-1}$]')
-            else:
-                cbar.set_label('Peak temperature [K]')
-        elif units == 'K km/s':
-            if self.sample == 'viva' or self.sample == 'things' or self.sample == None:
-                cbar.set_label(r'Integrated intensity [Jy b$^{-1}$ km s$^{-1}$]')
-            else:
-                cbar.set_label(r'Integrated intensity [K km s$^{-1}$]')
-        elif units == 'M_Sun/pc^2':
-            cbar.set_label(r'Surface density [M$_\odot$ pc$^{-2}$]')
+        ticks *= 10**exponent
+
+        # Mini function to format the ticks. If you simply want the "x10^exp"
+        # at the top of the colour bar per the default, comment out the line
+        # that calls this function
+        def tick_formatter(x, pos):
+            exponent = np.floor(np.log10(np.nanmax(mom0.data)))
+            base = x / (10**exponent)
+
+            return f"{base:.1f}$\\times 10^{int(exponent)}$"
+
+        cbar = fig.colorbar(colors, ticks=ticks)
+        cbar.set_ticks(ticks)
+        cbar.ax.yaxis.set_major_formatter(FuncFormatter(tick_formatter))
+
+    # Set the label for the colour bar
+    if peak:
+        cbar.set_label("Peak temperature [K]")
+    elif units == "K km/s pc^2":
+        if "err" in savename:
+            cbar.set_label(r"CO luminosity error [K km s$^{-1}$ pc$^2$]")
         else:
-            raise AttributeError('Please choose between "K km/s" and "M_Sun/pc^2"')
+            cbar.set_label(r"CO luminosity [K km s$^{-1}$ pc$^2$]")
+    elif units == "K km/s":
+        if "err" in savename:
+            cbar.set_label(r"CO surface brightness error [K km s$^{-1}$]")
+        else:
+            cbar.set_label(r"CO surface brightness [K km s$^{-1}$]")
+    elif units == "Msol pc-2":
+        cbar.set_label(r"mol. mass surface density [M$_\odot$ pc$^{-2}$]")
+    elif units == "Msol/pix":
+        cbar.set_label(r"mol. mass [M$_\odot$]")
+    else:
+        raise AttributeError(
+            'Please choose from "K km/s pc^2", "K km/s", \
+                             "Msol pc-2", and "M_Sun/pc^2", or set "peak" to True'
+        )
 
-        # show the beam of the observations
-        fig.add_beam(frame=False, linewidth=5)  # automatically imports BMAJ, BMIN, and BPA
-        fig.beam.set_edgecolor('k')
-        fig.beam.set_facecolor('None')
-        fig.beam.set_borderpad(1)
+    # Show the synthesised beam of the observations
+    f.add_beam(frame=False, linewidth=5)  # automatically imports BMAJ, BMIN, and BPA
+    f.beam.set_edgecolor("k")
+    f.beam.set_facecolor("None")
+    f.beam.set_borderpad(1)
 
-        # show a scalebar
-        if self.galaxy.distance:
-            length = np.degrees(1e-3 / self.galaxy.distance)  # length of the scalebar in degrees, corresponding to 1 kpc
-            fig.add_scalebar(length=length, label='1 kpc', frame=False)
-            fig.scalebar.set_linewidth(5)
+    # Show a scalebar
+    # NOTE: This is not currently set up as distances are/were not known for each
+    # galaxy. Can be implemented if so desired.
+    # if self.galaxy.distance:
+    #    length = np.degrees(1e-3 / self.galaxy.distance)  # length of the scalebar in degrees, corresponding to 1 kpc
+    #    fig.add_scalebar(length=length, label='1 kpc', frame=False)
+    #    fig.scalebar.set_linewidth(5)
 
-        plt.tight_layout()
+    plt.tight_layout()
 
-        if self.tosave:
-            if peak:
-                plt.savefig(self.savepath + 'peakT.pdf', bbox_inches='tight')
-            elif units == 'K km/s':
-                if self.sample == 'viva' or self.sample == 'things' or self.sample == None:
-                    plt.savefig(self.savepath + 'mom0_Jyb-1kms-1.pdf', bbox_inches='tight')
-                else:
-                    plt.savefig(self.savepath + 'mom0_Kkms-1.pdf', bbox_inches='tight')
-            elif units == 'M_Sun/pc^2':
-                plt.savefig(self.savepath + 'mom0_Msolpc-2.pdf', bbox_inches='tight')
-        return
+    if savename:
+        plt.savefig(path + savename + ".png", bbox_inches="tight")
+        plt.savefig(
+            path.split("by_galaxy")[0]
+            + "by_product/moment_maps/"
+            + str(spec_res)
+            + "kms/"
+            + savename
+            + ".png",
+            bbox_inches="tight",
+        )
+        plt.savefig(path + savename + ".pdf", bbox_inches="tight")
+        plt.savefig(
+            path.split("by_galaxy")[0]
+            + "by_product/moment_maps/"
+            + str(spec_res)
+            + "kms/"
+            + savename
+            + ".pdf",
+            bbox_inches="tight",
+        )
 
 
-    def moment_1_2(self, moment=1):
+def moment_1_2(mom, galaxy, moment, path, spec_res=10, savename=None, chans2do=None):
+    """
+    Creates images for the moment one and two maps and saves them to png and pdf.
 
-        if moment == 1:
-            if self.refresh:
-                if self.overwrite:
-                    _, _, image, _, sysvel = MomentMaps(self.galaxy.name, self.path_pbcorr, self.path_uncorr,
-                                                         savepath=self.savepath, sun=self.sun, tosave=True,
-                                                        sample=self.sample, redo_clip=self.redo_clip).calc_moms()
-                else:
-                    _, _, image, _, sysvel = MomentMaps(self.galaxy.name, self.path_pbcorr, self.path_uncorr,
-                                                         sun=self.sun, tosave=False, sample=self.sample,
-                                                        redo_clip=self.redo_clip).calc_moms()
-            else:
-                image = fits.open(self.path + 'mom1.fits')[0]
+    Parameters
+    ----------
+    mom : HDU list
+        Contains the FITS image and corresponding header.
+    galaxy : string
+        The galaxy that is being imaged.
+    moment : float
+        Which moment map is being imaged. Options are 1 or 2.
+    path : string
+        Path to where the images are going to be saved.
+    spec_res : float, optional
+        Spectral resolution of the cube for which the moment map is imaged. Options
+        are 10 and 30 km/s. The default is 10. NOTE: this should just be read from the header.
+    savename : string, optional
+        Filename of the image to be saved. The image is only saved if this is provided. The default is None.
+    chans2do : string, optional
+        Path to the table containing the numbers of the channels that contain emission. The default is None.
 
-        elif moment == 2:
-            if self.refresh:
-                if self.overwrite:
-                    _, _, _, image, sysvel = MomentMaps(self.galaxy.name, self.path_pbcorr, self.path_uncorr,
-                                                         savepath=self.savepath, sun=self.sun, tosave=True,
-                                                        sample=self.sample, redo_clip=self.redo_clip).calc_moms()
-                else:
-                    _, _, _, image, sysvel = MomentMaps(self.galaxy.name, self.path_pbcorr, self.path_uncorr,
-                                                         sun=self.sun, tosave=False, sample=self.sample,
-                                                        redo_clip=self.redo_clip).calc_moms()
-            else:
-                image = fits.open(self.path + 'mom2.fits')[0]
+    Returns
+    -------
+    None.
 
-        cube_pbcorr, cube_uncorr = ClipCube(self.galaxy.name, self.path_pbcorr, self.path_uncorr,
-                                               sun=self.sun, tosave=False, sample=self.sample).readfits()
-        emiscube, noisecube = ClipCube(self.galaxy.name, self.path_pbcorr, self.path_uncorr, sun=self.sun,
-                                            savepath=self.savepath,
-                                            tosave=self.tosave, sample=self.sample).split_cube(cube_uncorr)
-        vel_array, _, _ = MomentMaps(self.galaxy.name, self.path_pbcorr, self.path_uncorr, sun=self.sun,
-                                      tosave=False, sample=self.sample, redo_clip=self.redo_clip).\
-            create_vel_array(emiscube)
+    """
+    # Load the velocity array
+    vel_array = np.load(
+        path
+        + "by_galaxy/"
+        + galaxy
+        + "/"
+        + str(spec_res)
+        + "kms/"
+        + savename.split("_mom1")[0].split("_mom2")[0]
+        + "_vel_array.npy"
+    )
 
-        #sysvel = (sysvel + 5) // 10 * 10
+    # Round the systemic velocity in case you want to show it in the figure
+    # sysvel = (sysvel + 5) // 10 * 10
 
-        f = plt.figure(figsize=self.galaxy.figsize)
+    fig = plt.figure(figsize=(11, 8))
 
-        # show the image in colour
-        fig = apl.FITSFigure(image, figure=f)
+    # Show the image in colour
+    f = apl.FITSFigure(mom, figure=fig)
 
-        # axes and ticks
-        fig.ticks.set_color('black')
-        fig.ticks.set_length(10)
-        fig.ticks.set_linewidth(2)
-        fig.tick_labels.set_xformat('hh:mm:ss')
-        fig.tick_labels.set_yformat('dd:mm:ss')
-        fig.ticks.show()
-        plt.rcParams['xtick.direction'] = 'in'
-        plt.rcParams['ytick.direction'] = 'in'
-        fig.ticks.set_minor_frequency(5)
+    # Format tick labels
+    f.ticks.set_color("black")
+    f.ticks.set_length(10)
+    f.ticks.set_linewidth(2)
+    f.tick_labels.set_xformat("hh:mm:ss")
+    f.tick_labels.set_yformat("dd:mm:ss")
+    f.ticks.show()
+    plt.rcParams["xtick.direction"] = "in"
+    plt.rcParams["ytick.direction"] = "in"
+    f.ticks.set_minor_frequency(5)
 
-        #add a colourbar
-        if moment == 2:
-            if self.galaxy.vrange2:
-                vrange2 = self.galaxy.vrange2
-            else:
-                vrange2 = 5 * np.nanmedian(image.data)
+    # Add a colourbar
+    if moment == 2:
+        vrange2 = np.nanmax(mom.data[np.isfinite(mom.data)])
 
-            fig.show_contour(image, cmap='sauron', levels=np.linspace(0, vrange2, len(vel_array)), vmin=0,
-                             vmax=vrange2, extend='both', filled=True, overlap=True)
-            colors = plt.contourf([[0, 0], [0, 0]], levels=np.linspace(0, vrange2, len(vel_array)),
-                                  cmap='sauron')
+        # If the velocity range in the moment two map is very large (unphysical),
+        # simply set it to 100. NOTE: can make this more clever.
+        if vrange2 > 100:
+            vrange2 = 100
 
-            if vrange2 < 11:
-                ticks = np.arange(0, vrange2 + 1, 1)
-            elif vrange2 < 100:
-                ticks = np.arange(0, vrange2 + 10, 10)
-            else:
-                ticks = np.arange(0, vrange2 + 20, 20)
-            cbar = f.colorbar(colors, ticks=ticks)
-            cbar.set_label(r'Observed $\sigma_v$ [km s$^{-1}$]')
+        f.show_contour(
+            mom,
+            cmap="sauron",
+            levels=np.linspace(0, vrange2, len(vel_array)),
+            vmin=0,
+            vmax=vrange2,
+            extend="both",
+            filled=True,
+            overlap=True,
+        )
+
+        colors = plt.contourf(
+            [[0, 0], [0, 0]],
+            levels=np.linspace(0, vrange2, len(vel_array)),
+            cmap="sauron",
+        )
+
+        # Set the ticks in an intuitive way depending on the maximum velocity
+        # dispersion
+        if vrange2 < 11:
+            ticks = np.arange(0, vrange2 + 1, 1)
+        elif vrange2 < 100:
+            ticks = np.arange(0, vrange2 + 10, 10)
+        elif vrange2 < 500:
+            ticks = np.arange(0, vrange2 + 20, 20)
+        else:
+            ticks = []
+
+        cbar = fig.colorbar(colors, ticks=ticks)
+        if "err" in savename:
+            cbar.set_label(r"Observed $\sigma_v$ error [km s$^{-1}$]")
+        else:
+            cbar.set_label(r"Observed $\sigma_v$ [km s$^{-1}$]")
+
+    elif moment == 1:
+        # For the moment one map use the channels in which the line is detected
+        # as the velocity range for the colour map.
+        # NOTE: this still has to be optimised for the error map
+        if mom.header["BTYPE"] == "co_vel":
+            clipping_table = pd.read_csv(chans2do)
+            KGAS_ID = np.array(clipping_table["KGAS_ID"])
+            minchan_v = np.array(clipping_table["minchan_v"])
+            maxchan_v = np.array(clipping_table["maxchan_v"])
+            clipping_vels = {
+                "KGAS" + id.astype(str): [min, max]
+                for id, min, max in zip(KGAS_ID, minchan_v, maxchan_v)
+            }
+
+            vmin = clipping_vels[galaxy][0]
+            vmax = clipping_vels[galaxy][1]
 
         else:
-            if self.galaxy.vrange:
-                vrange = self.galaxy.vrange
-            else:
-                vrange = int(vel_array[0] - sysvel)
+            vmin = 0
+            vmax = 30
 
-            fig.show_contour(image, cmap='sauron', levels=np.linspace(-vrange, vrange,
-                len(vel_array)), vmin=-vrange, vmax=vrange, extend='both', filled=True,
-                             overlap=True)
-            colors = plt.contourf([[0, 0], [0, 0]], levels=np.linspace(-vrange, vrange,
-                                                                       len(vel_array)), cmap='sauron')
-            if vrange < 16:
-                tickarr = np.arange(-vrange, 0, 3)
-            elif vrange < 60:
-                tickarr = np.arange(-vrange, 0, 10)
-            elif vrange < 130:
-                tickarr = np.arange(-vrange, 0, 20)
-            else:
-                tickarr = np.arange(-vrange, 0, 40)
+        f.show_contour(
+            mom,
+            cmap="sauron",
+            levels=np.linspace(vmin, vmax, len(vel_array)),
+            vmin=vmin,
+            vmax=vmax,
+            extend="both",
+            filled=True,
+            overlap=True,
+        )
 
+        colors = plt.contourf(
+            [[0, 0], [0, 0]],
+            levels=np.linspace(vmin, vmax, len(vel_array)),
+            cmap="sauron",
+        )
+
+        # Calculate the velocity range of the moment one map
+        vrange = vel_array[-1] - vel_array[0]
+
+        if vrange < 16:
+            tickarr = np.arange(round(vmin), round(vmax), 3)
+        elif vrange < 60:
+            tickarr = np.arange(round(vmin / 5) * 5 - 5, round(vmax / 5) * 5 + 5, 10)
+        elif vrange < 130:
+            tickarr = np.arange(
+                round(vmin / 10) * 10 - 10, round(vmax / 10) * 10 + 10, 20
+            )
+        elif vrange < 1000:
+            ticks = np.arange(
+                round(vmin / 10) * 10 - 10, round(vmax / 10) * 10 + 10, 50
+            )
+        else:
+            ticks = []
+
+        try:
+            cbar = fig.colorbar(colors, ticks=ticks)
+        except:
             ticks = np.concatenate((tickarr, [0], abs(tickarr)))
-            cbar = f.colorbar(colors, ticks=ticks)
-            cbar.set_label(r'Velocity [km s$^{-1}$]')
+            cbar = fig.colorbar(colors, ticks=ticks)
+        if "err" in savename:
+            cbar.set_label(r"Velocity error [km s$^{-1}$]")
+        else:
+            cbar.set_label(r"Velocity [km s$^{-1}$]")
 
-        # show the beam of the observations
-        fig.add_beam(frame=False, linewidth=5)  # automatically imports BMAJ, BMIN, and BPA
-        fig.beam.set_edgecolor('k')
-        fig.beam.set_facecolor('None')
-        fig.beam.set_borderpad(1)
+    # show the beam of the observations
+    f.add_beam(frame=False, linewidth=5)  # automatically imports BMAJ, BMIN, and BPA
+    f.beam.set_edgecolor("k")
+    f.beam.set_facecolor("None")
+    f.beam.set_borderpad(1)
 
-        # show a scalebar
-        if self.galaxy.distance:
-            length = np.degrees(1.e-3 / self.galaxy.distance)  # length of the scalebar in degrees, corresponding to 1 kpc
-            fig.add_scalebar(length=length, label='1 kpc', frame=False)
-            fig.scalebar.set_linewidth(5)
+    # show a scalebar
+    # if self.galaxy.distance:
+    #    length = np.degrees(1.e-3 / self.galaxy.distance)  # length of the scalebar in degrees, corresponding to 1 kpc
+    #    fig.add_scalebar(length=length, label='1 kpc', frame=False)
+    #    fig.scalebar.set_linewidth(5)
 
-        #Make sure the axis labels don't fall off the figure
-        plt.tight_layout()
+    plt.tight_layout()
 
-        if self.tosave:
-            if moment == 2:
-                plt.savefig(self.savepath+'mom2.pdf', bbox_inches='tight',)
-            else:
-                plt.savefig(self.savepath+'mom1.pdf', bbox_inches='tight')
+    if savename:
+        plt.savefig(
+            path
+            + "by_galaxy/"
+            + galaxy
+            + "/"
+            + str(spec_res)
+            + "kms/"
+            + savename
+            + ".png",
+            bbox_inches="tight",
+        )
+        plt.savefig(
+            path
+            + "by_product/moment_maps/"
+            + str(spec_res)
+            + "kms/"
+            + savename
+            + ".png",
+            bbox_inches="tight",
+        )
+        plt.savefig(
+            path
+            + "by_galaxy/"
+            + galaxy
+            + "/"
+            + str(spec_res)
+            + "kms/"
+            + savename
+            + ".pdf",
+            bbox_inches="tight",
+        )
+        plt.savefig(
+            path
+            + "by_product/moment_maps/"
+            + str(spec_res)
+            + "kms/"
+            + savename
+            + ".pdf",
+            bbox_inches="tight",
+        )
 
-        return
+
+def perform_moment_imaging(glob_path, targets, chans2do, spec_res=10):
+    """
+    Read in the moment map FITS files and create the corresponding png/pdf
+    images for each.
+
+    Parameters
+    ----------
+    glob_path : string
+        Path to where the products are stored.
+    targets : list
+        Contains the galaxy names of the targets to be imaged.
+    chans2do : string
+        Path to the table containing the velocities.
+    spec_res : float, optional
+        The spectral resolution of the original cube in km/s. Can be either
+        10 or 30. The default is 10.
+
+    Returns
+    -------
+    None.
+
+    """
+
+    # Find the relevant files and extract the corresponding galaxy name.
+    # NOTE: this will break if the path to the products changes and needs to be
+    # improved.
+    files = glob(glob_path + "by_galaxy/" + "**/")
+    galaxies = list(set([f.split("/")[8].split("_")[0] for f in files]))
+
+    # Loop over the list of galaxies and create the moment map images.
+    for galaxy in galaxies:
+        # If the galaxy is not among the targets, skip it.
+        if not galaxy in targets:
+            continue
+        else:
+            print(galaxy)
+
+        path = glob_path + "by_galaxy/" + galaxy + "/" + str(spec_res) + "kms/"
+
+        # I sometimes switch this on if the code gets stuck so it doesn't start
+        # remaking all the duplicate images.
+        # if os.path.exists(path + galaxy + '_Ico_K_kms-1.png'):
+        #    continue
+
+        # Read in the different types of moment maps
+        mom0_K_kmss = glob(path + "*Ico*.fits")
+        mom0_K_kms_pc2s = glob(path + "*Lco*.fits")
+        mom0_Msol_pc2 = glob(path + "*mmol_pc-2*.fits")
+        mom0_Msol_pix = glob(path + "*mmol_pix-1*.fits")
+        peakTs = glob(path + "*peak_temp_k*.fits")
+        mom1s = glob(path + "*mom1*.fits")
+        mom2s = glob(path + "*mom2*.fits")
+
+        # Create the images for the moment maps
+        # NOTE: This is wrapped in a try + except I think because the moment 1 or 2
+        # maps failed for some galaxies. It should be checked if this is still
+        # necessary and until then commented out while debugging.
+        try:
+            for mom0 in mom0_K_kmss:
+                moment_zero(
+                    fits.open(mom0)[0],
+                    galaxy=galaxy,
+                    path=path,
+                    savename=mom0.split("/")[-1].split(".fits")[0],
+                    spec_res=spec_res,
+                    units="K km/s",
+                    peak=False,
+                )
+            for mom0 in mom0_K_kms_pc2s:
+                moment_zero(
+                    fits.open(mom0)[0],
+                    galaxy=galaxy,
+                    path=path,
+                    savename=mom0.split("/")[-1].split(".fits")[0],
+                    spec_res=spec_res,
+                    units="K km/s pc^2",
+                    peak=False,
+                )
+            for mom0 in mom0_Msol_pc2:
+                moment_zero(
+                    fits.open(mom0)[0],
+                    galaxy=galaxy,
+                    path=path,
+                    savename=mom0.split("/")[-1].split(".fits")[0],
+                    spec_res=spec_res,
+                    units="Msol pc-2",
+                    peak=False,
+                )
+            for mom0 in mom0_Msol_pix:
+                moment_zero(
+                    fits.open(mom0)[0],
+                    galaxy=galaxy,
+                    path=path,
+                    savename=mom0.split("/")[-1].split(".fits")[0],
+                    spec_res=spec_res,
+                    units="Msol/pix",
+                    peak=False,
+                )
+            for peakT in peakTs:
+                moment_zero(
+                    fits.open(peakT)[0],
+                    galaxy=galaxy,
+                    path=path,
+                    savename=peakT.split("/")[-1].split(".fits")[0],
+                    spec_res=spec_res,
+                    peak=True,
+                )
+            for mom1 in mom1s:
+                moment_1_2(
+                    fits.open(mom1)[0],
+                    savename=mom1.split("/")[-1].split(".fits")[0],
+                    galaxy=galaxy,
+                    moment=1,
+                    path=glob_path,
+                    spec_res=spec_res,
+                    chans2do=chans2do,
+                )
+            for mom2 in mom2s:
+                moment_1_2(
+                    fits.open(mom2)[0],
+                    savename=mom2.split("/")[-1].split(".fits")[0],
+                    galaxy=galaxy,
+                    moment=2,
+                    path=glob_path,
+                    spec_res=spec_res,
+                )
+
+        except:
+            print(galaxy)
+
+
+if __name__ == "__main__":
+    # NOTE: all hardcoded for now as it isn't really used, but can improve
+    # to take user input.
+
+    version = 1.1
+    ifu_matched = True
+    spec_res = 10
+
+    if ifu_matched:
+        glob_path = "/arc/projects/KILOGAS/products/v" + str(version) + "/matched/"
+    else:
+        "/arc/projects/KILOGAS/products/v" + str(version) + "/original/"
+    targets = ["KGAS107"]
+    chans2do = "KGAS_chans2do_v_optical_Sept25.csv"
+
+    perform_moment_imaging(glob_path, targets, chans2do, spec_res=spec_res)
