@@ -109,7 +109,7 @@ if __name__ == "__main__":
         pb_thresh=pb_thresh,
     )
 
-    image_moments_dev.perform_moment_imaging(
+    image_moments.perform_moment_imaging(
         glob_path=save_path, targets=detections, chans2do=chans2do, spec_res=spec_res
     )
 
