@@ -1119,7 +1119,7 @@ def calc_uncs(
                     + "_Lco_K_kms-1_pc2_err.fits",
                     overwrite=True,
                 )
-        if spec_res == 10:
+        elif spec_res == 10:
             mom0_uncertainty_hdu.writeto(
                 savepath
                 + "by_galaxy/"
