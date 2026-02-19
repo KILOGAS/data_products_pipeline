@@ -1459,7 +1459,7 @@ def perform_moment_creation(
         # Open both FITS images
         cube_fits = fits.open(cube[0])[0]
         cube_raw_fits = fits.open(cube_raw[0])[0]
-
+        
         # Create the moment zero map with all four units, and the peak tempearture map
         calc_moms(
             cube_fits,
@@ -1502,7 +1502,7 @@ def perform_moment_creation(
             R21=0.7,
         )
         calc_peak_t(cube_fits, galaxy, spec_res=spec_res, savepath=path)
-
+        
         # Create the corresponding uncertainty maps
         calc_uncs(
             cube_fits,
@@ -1512,6 +1512,7 @@ def perform_moment_creation(
             spec_res=spec_res,
             savepath=path,
             ifu_match=ifu_match,
+            clipped_cube=cube_fits,
             units="K km/s",
             alpha_co=4.35,
             R21=0.7,
@@ -1525,6 +1526,7 @@ def perform_moment_creation(
             spec_res=spec_res,
             savepath=path,
             ifu_match=ifu_match,
+            clipped_cube=cube_fits,
             units="K km/s pc^2",
             alpha_co=4.35,
             R21=0.7,
@@ -1538,6 +1540,7 @@ def perform_moment_creation(
             spec_res=spec_res,
             savepath=path,
             ifu_match=ifu_match,
+            clipped_cube=cube_fits,
             units="Msol pc-2",
             alpha_co=4.35,
             R21=0.7,
@@ -1551,6 +1554,7 @@ def perform_moment_creation(
             spec_res=spec_res,
             savepath=path,
             ifu_match=ifu_match,
+            clipped_cube=cube_fits,
             units="Msol/pix",
             alpha_co=4.35,
             R21=0.7,
